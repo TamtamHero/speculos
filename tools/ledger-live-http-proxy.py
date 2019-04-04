@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+
+'''
+Quick and dirty code to exchange APDUs between Ledger Live Speculos APDU server.
+
+Usage example:
+
+  export DEBUG_COMM_HTTP_PROXY='http://127.0.0.1:9998'
+  ledger-live getAddress -c btc --path "m/49'/0'/0'/0/0" --derivationMode segwit
+'''
+
+import binascii
+import json
+import http.server
+import socketserver
+import socket
+import sys
+
+HOST = '127.0.0.1'
+PORT = 9998
+
+def _recvall(s, size):
+    data = b''
+    while size > 0:
+        tmp = s.recv(size)
+        if len(tmp) == 0:
+            print("[-] apduthread: connection with client closed", file=sys.stderr)
+            return None
+        data += tmp
+        size -= len(tmp)
+    return data
+
+class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
+
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+
+    def do_POST(self):
+        # get APDU from the request body
+        content_length = int(self.headers['Content-Length'])
+        body = self.rfile.read(content_length)
+        apdu = json.loads(body)
+        apdu = binascii.unhexlify(apdu['apduHex'])
+
+        # forward the APDU to the APDU server
+        apdu = len(apdu).to_bytes(4, 'big') + apdu
+        s.sendall(apdu)
+
+        # receive the APDU server response
+        data = _recvall(s, 4)
+        size = int.from_bytes(data, byteorder='big')
+        packet = _recvall(s, size + 2)
+
+        # forward the APDU response to the client, embedded in response body
+        data = { 'data': str(binascii.hexlify(packet), 'ascii'), 'error': None }
+        data = json.dumps(data)
+        data = data.encode('ascii')
+
+        self.send_response(200)
+        self.send_header('Content-Length', len(data))
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(data)
+
+if __name__ == '__main__':
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(('127.0.0.1', 9999))
+
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer((HOST, PORT), SimpleHTTPRequestHandler) as httpd:
+        print("serving at port", PORT)
+        httpd.serve_forever()
+
+    s.close()

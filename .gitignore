@@ -1,0 +1,8 @@
+*.a
+*.o
+__pycache__/
+src/app
+tests/hello
+tests/test_hmac
+tests/test_ripemd
+tests/test_sha2
