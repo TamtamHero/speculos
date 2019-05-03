@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <execinfo.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
@@ -41,7 +42,20 @@ static unsigned int napp;
 static ucontext_t *context;
 static void *svc_addr;
 
-static void handle_sigill(int UNUSED(sig_no), siginfo_t *UNUSED(info), void *vcontext)
+static void crash_handler(int sig_no)
+{
+  void *array[10];
+  size_t size;
+
+  size = backtrace(array, 10);
+
+  fprintf(stderr, "[-] The app crashed with signal %d\n", sig_no);
+  backtrace_symbols_fd(array, size, STDERR_FILENO);
+
+  _exit(1);
+}
+
+static void sigill_handler(int sig_no, siginfo_t *UNUSED(info), void *vcontext)
 {
   unsigned long pc, syscall, ret;
   unsigned long *parameters;
@@ -55,6 +69,7 @@ static void handle_sigill(int UNUSED(sig_no), siginfo_t *UNUSED(info), void *vco
   if (context->uc_mcontext.arm_pc != (unsigned long)svc_addr) {
     fprintf(stderr, "[*] unhandled instruction at pc 0x%08lx\n", pc);
     fprintf(stderr, "    it would have triggered a crash on a real device\n");
+    crash_handler(sig_no);
     _exit(1);
   }
 
@@ -75,18 +90,23 @@ static void handle_sigill(int UNUSED(sig_no), siginfo_t *UNUSED(info), void *vco
   context->uc_mcontext.arm_pc += 2;
 }
 
-static int setup_sigill(void)
+static int setup_signals(void)
 {
   struct sigaction sig_action;
 
   memset(&sig_action, 0, sizeof(sig_action));
 
-  sig_action.sa_sigaction = handle_sigill;
+  sig_action.sa_sigaction = sigill_handler;
   sig_action.sa_flags = SA_RESTART | SA_SIGINFO;
   sigemptyset(&sig_action.sa_mask);
 
   if (sigaction(SIGILL, &sig_action, 0) != 0) {
     warn("sigaction(SIGILL)");
+    return -1;
+  }
+
+  if (signal(SIGSEGV, &crash_handler) == SIG_ERR) {
+    warn("signal(SIGSEGV");
     return -1;
   }
 
@@ -341,7 +361,7 @@ int main(int argc, char *argv[])
   if (load_apps(argc - 1, &argv[1]) != 0)
     return 1;
 
-  if (setup_sigill() != 0)
+  if (setup_signals() != 0)
     return 1;
 
   run_app(MAIN_APP_NAME, NULL);
