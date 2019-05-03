@@ -10,6 +10,7 @@ from . import screen
 
 SEPROXYHAL_TAG_BUTTON_PUSH_EVENT = 0x05
 SEPROXYHAL_TAG_DISPLAY_PROCESSED_EVENT = 0x0d
+SEPROXYHAL_TAG_TICKER_EVENT = 0x0e
 SEPROXYHAL_TAG_CAPDU_EVENT = 0x16
 
 SEPROXYHAL_TAG_RAPDU = 0x53
@@ -117,9 +118,8 @@ class SeProxyHal:
         self._send_packet(SEPROXYHAL_TAG_CAPDU_EVENT, packet)
 
     def _seproxyhal_server(self):
-        #while self.display_thread.is_alive() and self.apdu_thread.is_alive():
         while not self.stop_flag:
-            r, _, _ = select.select([ self.s, self.pipe_r ], [], [])
+            r, _, _ = select.select([ self.s, self.pipe_r ], [], [], 0.5)
 
             if self.s in r:
                 self._handle_seph_packet(self.display_thread.display)
@@ -129,6 +129,10 @@ class SeProxyHal:
                     break
                 buttons = self.display_thread.display.handle_events()
                 self._handle_buttons(buttons)
+            else:
+                # XXX: sending this tag regularly allows the end of animated texts
+                # to be displayed
+                self._send_packet(SEPROXYHAL_TAG_TICKER_EVENT)
 
     def seproxyhal_server(self):
         try:
