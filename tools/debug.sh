@@ -17,7 +17,7 @@ c
 EOF
 
     gdb-multiarch -q -nh -x /tmp/x.gdb
-    #qemu-arm-static -g 1234 -singlestep ./src/app ./apps/btc.elf &
+    #qemu-arm-static -g 1234 -singlestep ./src/launcher ./apps/btc.elf &
 }
 
 if [ $# -ne 1 ]; then

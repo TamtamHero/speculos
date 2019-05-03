@@ -4,7 +4,6 @@ CFLAGS := -I../sdk -I../openssl/include -mthumb -W -Wall -fPIC -DOS_LITTLE_ENDIA
 LDFLAGS := -static -L../openssl -lssl -lcrypto -ldl
 
 OBJS = \
-	app.o \
 	cx_blake2b.o \
 	cx_ec.o \
 	cx_hmac.o \
@@ -20,18 +19,19 @@ OBJS = \
 	emu_default.o \
 	emu_os.o \
 	emu_os_bip32.o \
-	emu_seproxyhal.o
+	emu_seproxyhal.o \
+	launcher.o
 
-all: app libemu.a
+all: launcher libemu.a
 
-app: $(OBJS)
+launcher: $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-libemu.a: $(filter-out app.o,$(OBJS))
+libemu.a: $(filter-out launcher.o,$(OBJS))
 	$(AR) rcs $@ $^
 
 %.o: %.c
 	$(CC) $(CFLAGS) -o $@ -c $^
 
 clean:
-	rm -f *.o *.a app
+	rm -f *.o *.a launcher

@@ -29,7 +29,7 @@ def run_qemu(s1, s2, app_path, libraries=[], seed=DEFAULT_SEED, debug=False):
     args = [ 'qemu-arm-static' ]
     if debug:
         args += [ '-g', '1234', '-singlestep' ]
-    args += [ './src/app', app_path ]
+    args += [ './src/launcher', app_path ]
     if libraries:
         args += libraries
 

@@ -1,7 +1,7 @@
 *.a
 *.o
 __pycache__/
-src/app
+src/launcher
 tests/hello
 tests/test_hmac
 tests/test_ripemd
