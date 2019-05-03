@@ -65,7 +65,11 @@ class SeProxyHal:
         size = len(data).to_bytes(2, 'big')
         packet = tag.to_bytes(1, 'big') + size + data
         #print('[*] seproxyhal: send %s\n' % binascii.hexlify(packet), file=sys.stderr)
-        self.s.sendall(packet)
+        try:
+            self.s.sendall(packet)
+        except BrokenPipeError:
+            # the pipe is closed, which means the app exited
+            raise ServiceExit
 
     def _handle_seph_packet(self, display):
         '''Handle packet sent by app.'''
