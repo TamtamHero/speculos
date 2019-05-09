@@ -1,59 +1,43 @@
-import binascii
-import ctypes
-from construct import *
-import os
-import threading
-import sdl2
-import sdl2.ext
 import sys
 
-from . import bagl_font
-from . import bagl_glyph
-from . import icon
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel
+from PyQt5.QtGui import QPainter, QColor, QPen, QPixmap
+from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt, QObject, QRunnable, QMetaObject, QSocketNotifier, pyqtSlot, pyqtSignal
 
-SDL_WINDOWEVENT_TAKE_FOCUS = 15
-
-BAGL_FILL = 1
+from . import bagl
 
 BUTTON_LEFT  = 1
 BUTTON_RIGHT = 2
 
-BAGL_NONE           = 0
-BAGL_BUTTON         = 1
-BAGL_LABEL          = 2
-BAGL_RECTANGLE      = 3
-BAGL_LINE           = 4
-BAGL_ICON           = 5
-BAGL_CIRCLE         = 6
-BAGL_LABELINE       = 7
-BAGL_FLAG_TOUCHABLE = 0x80
+class PaintWidget(QWidget):
+    def __init__(self,parent):
+        super(PaintWidget, self).__init__(parent)
+        self.mPixmap = QPixmap()
+        self.pixels = {}
 
-BAGL_FONT_ALIGNMENT_HORIZONTAL_MASK = 0xC000
-BAGL_FONT_ALIGNMENT_LEFT            = 0x0000
-BAGL_FONT_ALIGNMENT_RIGHT           = 0x4000
-BAGL_FONT_ALIGNMENT_CENTER          = 0x8000
-BAGL_FONT_ALIGNMENT_VERTICAL_MASK   = 0x3000
-BAGL_FONT_ALIGNMENT_TOP             = 0x0000
-BAGL_FONT_ALIGNMENT_BOTTOM          = 0x1000
-BAGL_FONT_ALIGNMENT_MIDDLE          = 0x2000
+    def paintEvent(self, event):
+        if self.pixels:
+            pixmap = QPixmap(self.size())
+            pixmap.fill(Qt.white)
+            painter = QPainter(pixmap)
+            painter.drawPixmap(0, 0, self.mPixmap)
+            self._redraw(painter)
+            self.mPixmap = pixmap
+            self.pixels = {}
 
-bagl_component_t = Aligned(4, Struct(
-    "type"    / Int8ul,
-    "userid"  / Int8ul,
-    "x"       / Int16ul,
-    "y"       / Int16ul,
-    "width"   / Int16ul,
-    "height"  / Int16ul,
-    "stroke"  / Int8ul,
-    "radius"  / Int8ul,
-    "fill"    / Padded(4, Int8ul),
-    "fgcolor" / Int32ul,
-    "bgcolor" / Int32ul,
-    "font_id" / Int16ul,
-    "icon_id" / Int8ul,
-))
+        qp = QPainter(self)
+        qp.drawPixmap(0, 0, self.mPixmap)
 
-class Bagl:
+    def _redraw(self, qp):
+        for (x, y), color in self.pixels.items():
+            qp.setPen(QColor.fromRgb(color))
+            qp.drawPoint(x, y)
+
+    def draw_point(self, x, y, color):
+        self.pixels[(x, y)] = color
+
+class Screen(QMainWindow):
     COLORS = {
         'LAGOON_BLUE': 0x7ebab5,
         'JADE_GREEN': 0xb9ceac,
@@ -66,557 +50,109 @@ class Bagl:
         'SYLVE_CYAN': 0x29f3f3,
     }
 
-    def __init__(self, window, width, height, color, offset_x=0, offset_y=0):
-        self.window = window
-        self.SCREEN_WIDTH = width
-        self.SCREEN_HEIGHT = height
-        self.offset_x = offset_x
-        self.offset_y = offset_y
+    def __init__(self, apdu, seph, color, width=128, height=32):
+        self.apdu = apdu
+        self.seph = seph
 
-        '''self.screen_draw_x = 0
-        self.screen_draw_y = 0
-        self.screen_draw_width = 0
-        self.screen_draw_height = 0
-        self.screen_draw_YX = 0
-        self.screen_draw_YXlinemax = 0
-        self.screen_draw_Ybitmask = 0
-        self.screen_draw_colors = []'''
-        self.screen_framebuffer = [ 0 ] * ((self.SCREEN_WIDTH * self.SCREEN_HEIGHT) // 8)
-
-        self._draw_box(color)
-
-    def _draw_box(self, color):
-        '''
-        Draw the Nano box. Fancy feature.
-        Circle from https://stackoverflow.com/a/41902448
-        '''
-
-        if self.offset_x == 0 and self.offset_y == 0:
-            return
-
-        windowsurface = self.window.get_surface()
-        sdl2.ext.draw.fill(windowsurface, self.COLORS[color])
-
-        radius = self.SCREEN_HEIGHT // 2
-        center_x = self.offset_x + self.SCREEN_WIDTH + 50
-        center_y = self.offset_y + self.SCREEN_HEIGHT // 2
-
-        pixelview = sdl2.ext.pixels2d(windowsurface)
-        for w in range(radius * 2):
-            for h in range(radius * 2):
-                dx = radius - w
-                dy = radius - h
-                if dx * dx + dy * dy <= radius * radius:
-                    pixelview[center_x + dx][center_y + dy] = 0x000000
-        del pixelview
-        self.window.refresh()
-
-    def refresh(self):
-        windowsurface = self.window.get_surface()
-        pixelview = sdl2.ext.pixels2d(windowsurface)
-        for y in range(self.SCREEN_HEIGHT // 8):
-            for x in range(self.SCREEN_WIDTH):
-                v = self.screen_framebuffer[y*self.SCREEN_WIDTH+x]
-                for i in range(8):
-                    c = (v>>i) & 1
-                    if c:
-                        pixelview[self.offset_x + x][self.offset_y + 8*y+i] = 0x00fffb
-                    else:
-                        pixelview[self.offset_x + x][self.offset_y + 8*y+i] = 0x000000
-        del pixelview
-        self.window.refresh()
-
-    def hal_draw_bitmap_within_rect_internal(self, bpp, bitmap, bitmap_length_bits):
-        x = self.screen_draw_x
-        xx = x
-        y = self.screen_draw_y
-        width = self.screen_draw_width
-        height = self.screen_draw_height
-        YX = self.screen_draw_YX
-        YXlinemax = self.screen_draw_YXlinemax
-        Ybitmask = self.screen_draw_Ybitmask
-        colors = self.screen_draw_colors
-        pixel_mask = 1
-
-        while bitmap_length_bits > 0 and height != 0:
-            ch = bitmap[0]
-            bitmap = bitmap[1:]
-            for i in range(0, 8, bpp):
-                if bitmap_length_bits == 0:
-                    break
-                if y >= 0 and xx >= 0:
-                    if colors[(ch>>i) & pixel_mask] != 0:
-                        if YX < len(self.screen_framebuffer):
-                            self.screen_framebuffer[YX] |= Ybitmask
-                        else:
-                            # XXX: handle alignment
-                            #print('bug')
-                            pass
-                    else:
-                        if YX < len(self.screen_framebuffer):
-                            self.screen_framebuffer[YX] &= ~Ybitmask
-                        else:
-                            # XXX: handle alignment
-                            #print('bug')
-                            pass
-
-                bitmap_length_bits -= bpp
-
-                xx += 1
-                YX += 1
-                if YX >= YXlinemax:
-                    y += 1
-                    height -= 1
-                    YX = (y // 8) * self.SCREEN_WIDTH + x
-                    xx = x
-                    YXlinemax = YX + width
-                    Ybitmask = 1 << (y % 8)
-
-                if height == 0:
-                    break
-
-        self.screen_draw_x = x
-        self.screen_draw_y = y
-        self.screen_draw_width = width
-        self.screen_draw_height = height
-        self.screen_draw_YX = YX
-        self.screen_draw_YXlinemax = YXlinemax
-        self.screen_draw_Ybitmask = Ybitmask
-
-    def hal_draw_bitmap_within_rect(self, x, y, width, height, colors, bpp, bitmap, bitmap_length_bits):
-        if x >= self.SCREEN_WIDTH or y >= self.SCREEN_HEIGHT:
-            return
-
-        if x + width > self.SCREEN_WIDTH:
-            width = self.SCREEN_WIDTH - x
-
-        if y + height > self.SCREEN_HEIGHT:
-            height = self.SCREEN_HEIGHT - y
-
-        YX = (y // 8) * self.SCREEN_WIDTH + x
-        Ybitmask = 1 << (y % 8)
-        YXlinemax = YX + width
-
-        self.screen_draw_x = x
-        self.screen_draw_y = y
-        self.screen_draw_width = width
-        self.screen_draw_height = height
-        self.screen_draw_YX = YX
-        self.screen_draw_YXlinemax = YXlinemax
-        self.screen_draw_Ybitmask = Ybitmask
-        self.screen_draw_colors = colors
-
-        self.hal_draw_bitmap_within_rect_internal(bpp, bitmap, bitmap_length_bits)
-
-    def hal_draw_rect(self, color, x, y, width, height):
-        if x + width > self.SCREEN_WIDTH or x < 0:
-            return
-        if y + height > self.SCREEN_HEIGHT or y < 0:
-            return
-
-        YX = (y//8)*self.SCREEN_WIDTH + x
-        Ybitmask = 1<<(y%8)
-        YXlinemax = YX + width
-
-        i = width * height
-        while i > 0:
-            i -= 1
-            if color:
-                self.screen_framebuffer[YX] |= Ybitmask
-            else:
-                self.screen_framebuffer[YX] &= ~Ybitmask
-            YX += 1
-            if YX >= YXlinemax:
-                y += 1
-                height -= 1
-                YX = (y // 8) * self.SCREEN_WIDTH + x
-                YXlinemax = YX + width
-                Ybitmask = 1<<(y%8)
-            if height == 0:
-                break
-
-    def compute_line_width(font_id, width, text, text_encoding):
-        font = bagl_font.get(font_id)
-        if not font:
-            return 0
-
-        xx = 0
-
-        text = text.replace(b'\r\n', b'\n')
-        for ch in text:
-            ch_width = 0
-
-            if ch < font.first_char or ch > font.last_char:
-                if ch in [ '\r', '\n' ]:
-                    return xx
-
-                if ch >= 0xc0:
-                    ch_width = ch & 0x3f
-                elif ch >= 0x80:
-                    if ch & 0x20:
-                        font_symbol_id = BAGL_FONT_SYMBOLS_1
-                    else:
-                        font_symbol_id = BAGL_FONT_SYMBOLS_0
-                    font_symbols = bagl_font.get(font_symbol_id)
-                    if font_symbols:
-                        ch_width = font.characters[ch & 0x1f].char_width
-            else:
-                ch -= font.first_char
-                ch_width = font.characters[ch].char_width
-                ch_kerning = font.char_kerning
-
-            if xx + ch_width > width and width > 0:
-                return xx
-
-            xx += ch_width
-
-        return xx
-
-
-    def draw_string(self, font_id, fgcolor, bgcolor, x, y, width, height, text, text_encoding):
-        font = bagl_font.get(font_id)
-        if not font:
-            return 0
-
-        colors = [ bgcolor, fgcolor ]
-        if font.bpp > 1:
-            # TODO
-            pass
-
-        width += x
-        height += y
-        xx = x
-
-        text = text.replace(b'\r\n', b'\n')
-
-        for ch in text:
-            ch_height = font.char_height
-            ch_kerning = 0
-            ch_width = 0
-            ch_bitmap = None
-            ch_y = y
-
-            if ch < font.first_char or ch > font.last_char:
-                if ch in [ '\r', '\n' ]:
-                    y += ch_height
-                    if y + ch_height > height:
-                        return (y << 16) | (xx & 0xFFFF)
-                    xx = x
-                    continue
-
-                if ch >= 0xc0:
-                    ch_width = ch & 0x3f
-                elif ch >= 0x80:
-                    if ch & 0x20:
-                        font_symbol_id = BAGL_FONT_SYMBOLS_1
-                    else:
-                        font_symbol_id = BAGL_FONT_SYMBOLS_0
-                    font_symbols = bagl_font.get(font_symbol_id)
-                    if font_symbols:
-                        ch_bitmap = font.bitmap[font.characters[ch & 0x1f].bitmap_offset:]
-                        ch_width = font.characters[ch & 0x1f].char_width
-                        ch_height = font_symbols.char_height
-                        ch_y = y + font.baseline_height - font_symbols.baseline_height
-            else:
-                ch -= font.first_char
-                ch_bitmap = font.bitmap[font.characters[ch].bitmap_offset:]
-                ch_width = font.characters[ch].char_width
-                ch_kerning = font.char_kerning
-
-            if xx + ch_width > width:
-                y += ch_height
-                if y + ch_height > height:
-                    return (y << 16 ) | (xx & 0xFFFF)
-                xx = x
-                ch_y = y
-
-            if ch_bitmap:
-                self.hal_draw_bitmap_within_rect(xx, ch_y, ch_width, ch_height, colors, font.bpp, ch_bitmap, font.bpp * ch_width * ch_height)
-            else:
-                self.hal_draw_rect(bgcolor, xx, ch_y, ch_width, ch_height)
-
-            xx += ch_width + ch_kerning
-
-        return (y << 16) | (xx & 0xFFFF)
-
-def window_draggable(window, area, data):
-    '''
-    This callback tells that any part of the window should be seen as draggable
-    by the window manager. It allows the borderless window to be moved using a
-    left click.
-    '''
-    return sdl2.SDL_HITTEST_DRAGGABLE
-
-class Screen:
-    def __init__(self, color, width=128, height=32):
         self.width = width
         self.height = height
+        
+        super().__init__()
+
+        self._init_notifiers([ apdu, seph ])
+
+        self.setWindowTitle('Nano Emulator')
         box_size_x, box_size_y = 100, 26
+        self.setGeometry(10, 10, self.width + box_size_x, self.height + box_size_y)
+        self.setWindowFlags(Qt.FramelessWindowHint)
+        
+        self.setAutoFillBackground(True)
+        p = self.palette()
+        p.setColor(self.backgroundRole(), QColor.fromRgb(self.COLORS[color]))
+        self.setPalette(p)
 
-        self.events = []
+        #painter.drawEllipse(QPointF(x,y), radius, radius);
 
-        # SDL2 segfaults if the DISPLAY environment variable is invalid. Try at
-        # least to prevent this behavior if the variable is not set.
-        if os.getenv('DISPLAY') == None:
-            print('[-] DISPLAY environment variable is not set', file=sys.stderr)
-            sys.exit(1)
+        # Add paint widget and paint
+        self.m = PaintWidget(self)
+        self.m.move(20, box_size_y // 2)
+        self.m.resize(self.width, self.height)
 
-        sdl2.ext.init()
-        self.window = sdl2.ext.Window("Nano Emulator",
-                                      size=(self.width + box_size_x, self.height + box_size_y),
-                                      flags=sdl2.SDL_WINDOW_BORDERLESS)
-        self.window.show()
+        self.setWindowIcon(QIcon('mcu/icon.png'))
 
-        sdl2.video.SDL_SetWindowHitTest(self.window.window, sdl2.video.SDL_HitTest(window_draggable), None)
+        self.show()
 
-        image = sdl2.ext.surface.SDL_CreateRGBSurfaceFrom(icon.pxbuf, icon.width, icon.height,
-                                                          icon.depth, icon.pitch, icon.rmask,
-                                                          icon.gmask, icon.bmask, icon.amask)
-        sdl2.video.SDL_SetWindowIcon(self.window.window, image)
+        self.bagl = bagl.Bagl(self.m, width, height, color)
 
-        self.bagl = Bagl(self.window, width, height, color, 20, box_size_y // 2)
+    def add_notifier(self, klass):
+        n = QSocketNotifier(klass.s.fileno(), QSocketNotifier.Read, self)
+        n.activated.connect(lambda s: klass.can_read(s, self))
 
-    def _display_bagl_icon(self, component, context):
-        if component.icon_id != 0:
-            #print('[*] icon_id', component.icon_id)
-            glyph = bagl_glyph.get(component.icon_id)
-            if not glyph:
-                print('[-] bagl glyph 0x%x not found' % component.icon_id)
-                return
+        assert klass.s.fileno() not in self.notifiers
+        self.notifiers[klass.s.fileno()] = n
 
-            if len(context) != 0:
-                assert (1 << glyph.bpp) * 4 == len(context)
-                colors = []
-                for i in range(0, 1 << bpp):
-                    color = int.from_bytes(context[i*4:(i+1)*4], byteorder='big')
-                    colors.append(color)
-            else:
-                colors = glyph.colors
+    def _init_notifiers(self, classes):
+        self.notifiers = {}
+        for klass in classes:
+            self.add_notifier(klass)
 
-            self.bagl.hal_draw_bitmap_within_rect(
-                component.x + (component.width // 2 - glyph.width // 2),
-                component.y + (component.height // 2 - glyph.height // 2),
-                glyph.width,
-                glyph.height,
-                colors,
-                glyph.bpp,
-                glyph.bitmap,
-                glyph.bpp * (glyph.width * glyph.height))
-        else:
-            if len(context) == 0:
-                print('len context == 0', binascii.hexlify(context))
-                return
+    def enable_notifier(self, fd, enabled=True):
+        n = self.notifiers[fd]
+        n.setEnabled(enabled)
 
-            bpp = context[0]
-            if bpp > 2:
-                return
-            colors = []
-            n = 1
-            for i in range(0, 1 << bpp):
-                color = int.from_bytes(context[n:n+4], byteorder='big')
-                colors.append(color)
-                n += 4
-            bitmap = context[n:]
-            bitmap_length_bits = bpp * component.width * component.height
-            assert len(bitmap) * 8 >= bitmap_length_bits
-            self.bagl.hal_draw_bitmap_within_rect(component.x, component.y,
-                                                  component.width, component.height,
-                                                  colors,
-                                                  bpp,
-                                                  bitmap, bitmap_length_bits)
+    def remove_notifier(self, fd):
+        # just in case
+        self.enable_notifier(fd, False)
 
-    def _display_bagl_rectangle(self, component, context):
-        radius = component.radius
-        radius = min(radius, min(component.width//2, component.height//2))
-        if component.fill != BAGL_FILL:
-            coords = [
-                # centered top to bottom
-                (component.x+radius, component.y, component.width-2*radius, component.height),
-                # left to center rect
-                (component.x, component.y+radius, radius, component.height-2*radius),
-                # center rect to right
-                (component.x+component.width-radius-1, component.y+radius, radius, component.height-2*radius),
-            ]
-            for (x, y, width, height) in coords:
-                self.bagl.hal_draw_rect(component.bgcolor, x, y, width, height)
-            coords = [
-                # outline. 4 rectangles (with last pixel of each corner not set)
-                # top, bottom, left, right
-                (component.x+radius, component.y, component.width-2*radius, component.stroke),
-                (component.x+radius, component.y+component.height-1, component.width-2*radius, component.stroke),
-                (component.x, component.y+radius, component.stroke, component.height-2*radius),
-                (component.x+component.width-1, component.y+radius, component.stroke, component.height-2*radius),
-            ]
-            for (x, y, width, height) in coords:
-                self.bagl.hal_draw_rect(component.fgcolor, x, y, width, height)
-        else:
-            coords = [
-                # centered top to bottom
-                (component.x+radius, component.y, component.width-2*radius, component.height),
-                # left to center rect
-                (component.x, component.y+radius, radius, component.height-2*radius),
-                # center rect to right
-                (component.x+component.width-radius, component.y+radius, radius, component.height-2*radius),
-            ]
-            for (x, y, width, height) in coords:
-                self.bagl.hal_draw_rect(component.fgcolor, x, y, width, height)
+        n = self.notifiers.pop(fd)
+        n.disconnect()
+        del n
 
-    def _display_bagl_labeline(self, component, text, halignment, baseline):
-        if len(text) == 0:
-            return
+    def forward_to_app(self, packet):
+        self.seph.to_app(packet)
 
-        # XXX
-        context_encoding = 0
-        self.bagl.draw_string(component.font_id,
-                              component.fgcolor,
-                              component.bgcolor,
-                              component.x + halignment,
-                              component.y - baseline,
-                              component.width - halignment,
-                              component.height,
-                              text,
-                              context_encoding)
-        self.bagl.refresh()
+    def forward_to_apdu_client(self, packet):
+        self.apdu.forward_to_client(packet)
 
-    def _display_get_alignment(self, component, context, context_encoding):
-        halignment = 0
-        valignment = 0
-        baseline = 0
-        char_height = 0
-        strwidth = 0
+    def _key_event(self, event, pressed):
+        key = event.key()
+        if key in [ Qt.Key_Left, Qt.Key_Right ]:
+            buttons = { Qt.Key_Left: BUTTON_LEFT, Qt.Key_Right: BUTTON_RIGHT }
+            # forward this event to seph
+            self.seph.handle_button(buttons[key], pressed)
 
-        if component.type == BAGL_ICON:
-            return (halignment, valignment, baseline, char_height, strwidth)
+    def keyPressEvent(self, event):
+        self._key_event(event, True)
 
-        font = bagl_font.get(component.font_id)
-        if font:
-            baseline = font.baseline_height
-            char_height = font.char_height
-
-            if context:
-                strwidth = Bagl.compute_line_width(component.font_id,
-                                                   component.width + 100,
-                                                   context,
-                                                   context_encoding)
-
-        haligned = (component.font_id & BAGL_FONT_ALIGNMENT_HORIZONTAL_MASK)
-        if haligned == BAGL_FONT_ALIGNMENT_RIGHT:
-            halignment = component.width - strwidth
-        elif haligned == BAGL_FONT_ALIGNMENT_CENTER:
-            halignment = component.width // 2 - strwidth // 2
-        elif haligned == BAGL_FONT_ALIGNMENT_LEFT:
-            halignment = 0
-        else:
-            halignment = 0
-
-        valigned = (component.font_id & BAGL_FONT_ALIGNMENT_VERTICAL_MASK)
-        if valigned == BAGL_FONT_ALIGNMENT_BOTTOM:
-            valignment = component.height - baseline
-        elif valigned == BAGL_FONT_ALIGNMENT_MIDDLE:
-            valignment = component.height // 2 - baseline // 2 - 1
-        elif valigned == BAGL_FONT_ALIGNMENT_TOP:
-            valignment = 0
-        else:
-            valignment = 0
-
-        return (halignment, valignment, baseline, char_height, strwidth)
+    def keyReleaseEvent(self, event):
+        self._key_event(event, False)
 
     def display_status(self, data):
-        component = bagl_component_t.parse(data)
-        context = data[bagl_component_t.sizeof():]
-        context_encoding = 0 # XXX
-        #print(component)
-
-        ret = self._display_get_alignment(component, context, context_encoding)
-        (halignment, valignment, baseline, char_height, strwidth) = ret
-
-        if component.type == BAGL_NONE:
-            # TODO
-            #self.renderer.clear()
-            pass
-        elif component.type == BAGL_RECTANGLE:
-            self._display_bagl_rectangle(component, context)
-        elif component.type == BAGL_LABELINE:
-            self._display_bagl_labeline(component, context, halignment, baseline)
-        elif component.type == BAGL_ICON:
-            self._display_bagl_icon(component, context)
+        self.bagl.display_status(data)
 
     def screen_update(self):
         self.bagl.refresh()
 
-    def add_events(self, events):
-        self.events += events
+    def mousePressEvent(self, event):
+        '''Get the mouse location.'''
 
-    def handle_events(self):
-        buttons = { sdl2.SDLK_LEFT: BUTTON_LEFT, sdl2.SDLK_RIGHT: BUTTON_RIGHT }
-        results = []
-        events = sdl2.ext.get_events()
-        while self.events:
-            event = self.events.pop(0)
-            if event.type == sdl2.SDL_QUIT:
-                sys.exit(0)
-            elif event.type in [ sdl2.SDL_KEYDOWN, sdl2.SDL_KEYUP ]:
-                sym = event.key.keysym.sym
-                if sym in buttons:
-                    results.append((buttons[sym], event.type == sdl2.SDL_KEYDOWN))
-            elif event.type == sdl2.SDL_WINDOWEVENT:
-                if event.window.event == SDL_WINDOWEVENT_TAKE_FOCUS:
-                    self.bagl.refresh()
-        return results
+        self.mouse_offset = event.pos()
+        QApplication.setOverrideCursor(Qt.DragMoveCursor)
 
-class DisplayThread(threading.Thread):
-    def __init__(self, pipe, color):
-        threading.Thread.__init__(self)
-        self.display = Screen(color)
-        self.pipe = pipe
-        self._stop_event = threading.Event()
+    def mouseReleaseEvent(self, event):
+        QApplication.restoreOverrideCursor()
 
-    def stop(self):
-        '''This method is called by the main thread.'''
+    def mouseMoveEvent(self, event):
+        '''Move the window.'''
 
-        self._stop_event.set()
+        x = event.globalX()
+        y = event.globalY()
+        x_w = self.mouse_offset.x()
+        y_w = self.mouse_offset.y()
+        self.move(x - x_w, y - y_w)
 
-        # simulate an event to make SDL_WaitEvent return
-        event = sdl2.SDL_Event(0, sdl2.SDL_GenericEvent(sdl2.SDL_QUIT))
-        sdl2.events.SDL_PushEvent(event)
-
-    def run(self):
-        while not self._stop_event.is_set():
-            events = sdl2.ext.get_events()
-            self.display.add_events(events)
-
-            # notify the other thread
-            os.write(self.pipe, b'x')
-
-            sdl2.SDL_WaitEvent(None)
-
-
-
-class HeadlessDisplay:
-    def __init__(self):
-        pass
-
-    def handle_events(self, *args):
-        pass
-
-    def screen_update(self, *args):
-        pass
-
-    def display_status(self, data):
-        component = bagl_component_t.parse(data)
-        context = data[bagl_component_t.sizeof():]
-        if len(context) > 0:
-            print('[*] display:', context.decode('utf-8'))
-
-class HeadlessDisplayThread:
-    def __init__(self, *args):
-        self.display = HeadlessDisplay()
-
-    def start(self):
-        pass
-
-    def stop(self):
-        pass
-
-    def join(self):
-        pass
+def display(apdu, seph, color='MATTE_BLACK'):
+    app = QApplication(sys.argv)
+    display = Screen(apdu, seph, color)
+    app.exec_()
+    app.quit()

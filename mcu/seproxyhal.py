@@ -1,7 +1,6 @@
 import binascii
 import os
 import select
-import signal
 import sys
 import time
 
@@ -25,29 +24,8 @@ class ServiceExit(Exception):
     '''
 
 class SeProxyHal:
-    def __init__(self, s, color='MATTE_BLACK', headless=False):
+    def __init__(self, s):
         self.s = s
-        self.headless = headless
-
-        self.stop_flag = False
-        signal.signal(signal.SIGTERM, self._sighandler)
-        signal.signal(signal.SIGINT, self._sighandler)
-
-        self.pipe_r, pipe_w = os.pipe()
-
-        if not self.headless:
-            self.display_thread = screen.DisplayThread(pipe_w, color)
-        else:
-            self.display_thread = screen.HeadlessDisplayThread(pipe_w, color)
-
-        self.display_thread.start()
-
-        self.apdu_thread = apdu.ApduThread(callback=self._apdu_callback)
-        self.apdu_thread.start()
-
-    def _sighandler(self, signum, frame):
-        self._stop_flag = True
-        raise ServiceExit
 
     def _recvall(self, size):
         data = b''
@@ -72,8 +50,14 @@ class SeProxyHal:
             # the pipe is closed, which means the app exited
             raise ServiceExit
 
-    def _handle_seph_packet(self, display):
-        '''Handle packet sent by app.'''
+    def can_read(self, s, screen):
+        '''
+        Handle packet sent by the app.
+
+        This function is called thanks to a screen QSocketNotifier.
+        '''
+
+        assert s == self.s.fileno()
 
         data = self._recvall(3)
         tag = data[0]
@@ -86,15 +70,16 @@ class SeProxyHal:
 
         if tag == SEPROXYHAL_TAG_GENERAL_STATUS:
             if int.from_bytes(data[:2], 'big') == SEPROXYHAL_TAG_GENERAL_STATUS_LAST_COMMAND:
-                display.screen_update()
+                screen.screen_update()
 
         elif tag == SEPROXYHAL_TAG_SCREEN_DISPLAY_STATUS:
             #print('[*] seproxyhal: DISPLAY_STATUS %s' % repr(data), file=sys.stderr)
-            display.display_status(data)
+            #display.display_status(data)
+            screen.display_status(data)
             self._send_packet(SEPROXYHAL_TAG_DISPLAY_PROCESSED_EVENT)
 
         elif tag == SEPROXYHAL_TAG_RAPDU:
-            self.apdu_thread.from_device(data)
+            screen.forward_to_apdu_client(data)
 
         elif tag in [ 0x4f, 0x50 ]:
             pass
@@ -103,43 +88,15 @@ class SeProxyHal:
             print('unknown tag: 0x%x' % tag)
             sys.exit(0)
 
-    def _handle_buttons(self, buttons):
+    def handle_button(self, button, pressed):
         '''Forward button press/release from the GUI to the app.'''
 
-        for button, pressed in buttons:
-            if pressed:
-                self._send_packet(SEPROXYHAL_TAG_BUTTON_PUSH_EVENT, (button << 1).to_bytes(1, 'big'))
-            else:
-                self._send_packet(SEPROXYHAL_TAG_BUTTON_PUSH_EVENT, (0 << 1).to_bytes(1, 'big'))
+        if pressed:
+            self._send_packet(SEPROXYHAL_TAG_BUTTON_PUSH_EVENT, (button << 1).to_bytes(1, 'big'))
+        else:
+            self._send_packet(SEPROXYHAL_TAG_BUTTON_PUSH_EVENT, (0 << 1).to_bytes(1, 'big'))
 
-    def _apdu_callback(self, packet):
+    def to_app(self, packet):
         '''Forward raw APDU to the app.'''
 
         self._send_packet(SEPROXYHAL_TAG_CAPDU_EVENT, packet)
-
-    def _seproxyhal_server(self):
-        while not self.stop_flag:
-            r, _, _ = select.select([ self.s, self.pipe_r ], [], [], 0.5)
-
-            if self.s in r:
-                self._handle_seph_packet(self.display_thread.display)
-            elif self.pipe_r in r:
-                data = os.read(self.pipe_r, 4096)
-                if data is None:
-                    break
-                buttons = self.display_thread.display.handle_events()
-                self._handle_buttons(buttons)
-            else:
-                # XXX: sending this tag regularly allows the end of animated texts
-                # to be displayed
-                self._send_packet(SEPROXYHAL_TAG_TICKER_EVENT)
-
-    def seproxyhal_server(self):
-        try:
-            self._seproxyhal_server()
-        except ServiceExit:
-            for thread in [self.display_thread, self.apdu_thread]:
-                thread.stop()
-
-            for thread in [self.display_thread, self.apdu_thread]:
-                thread.join()
