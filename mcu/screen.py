@@ -355,6 +355,12 @@ class Screen:
 
         self.events = []
 
+        # SDL2 segfaults if the DISPLAY environment variable is invalid. Try at
+        # least to prevent this behavior if the variable is not set.
+        if os.getenv('DISPLAY') == None:
+            print('[-] DISPLAY environment variable is not set', file=sys.stderr)
+            sys.exit(1)
+
         sdl2.ext.init()
         self.window = sdl2.ext.Window("Nano Emulator",
                                       size=(self.width + box_size_x, self.height + box_size_y),
