@@ -22,15 +22,16 @@ bagl_component_t = Aligned(4, Struct(
 
 BAGL_FILL = 1
 
-BAGL_NONE           = 0
-BAGL_BUTTON         = 1
-BAGL_LABEL          = 2
-BAGL_RECTANGLE      = 3
-BAGL_LINE           = 4
-BAGL_ICON           = 5
-BAGL_CIRCLE         = 6
-BAGL_LABELINE       = 7
-BAGL_FLAG_TOUCHABLE = 0x80
+BAGL_NONE            = 0
+BAGL_BUTTON          = 1
+BAGL_LABEL           = 2
+BAGL_RECTANGLE       = 3
+BAGL_LINE            = 4
+BAGL_ICON            = 5
+BAGL_CIRCLE          = 6
+BAGL_LABELINE        = 7
+BAGL_FLAG_TOUCHABLE  = 0x80
+BAGL_TYPE_FLAGS_MASK = 0x80
 
 BAGL_FONT_ALIGNMENT_HORIZONTAL_MASK = 0xC000
 BAGL_FONT_ALIGNMENT_LEFT            = 0x0000
@@ -46,8 +47,6 @@ class Bagl:
         self.m = m
         self.SCREEN_WIDTH = width
         self.SCREEN_HEIGHT = height
-
-        self.screen_framebuffer = [ 0 ] * ((self.SCREEN_WIDTH * self.SCREEN_HEIGHT) // 8)
 
     def _draw_box(self, color):
         '''
@@ -73,77 +72,12 @@ class Bagl:
         self.window.refresh()
 
     def refresh(self):
-        for y in range(self.SCREEN_HEIGHT // 8):
-            for x in range(self.SCREEN_WIDTH):
-                v = self.screen_framebuffer[y*self.SCREEN_WIDTH+x]
-                for i in range(8):
-                    c = (v>>i) & 1
-                    if c:
-                        color = 0x00fffb
-                    else:
-                        color = 0x000000
-                    self.m.draw_point(x, 8*y+i, color)
-
         self.m.update()
 
-    def hal_draw_bitmap_within_rect_internal(self, bpp, bitmap, bitmap_length_bits):
-        x = self.screen_draw_x
-        xx = x
-        y = self.screen_draw_y
-        width = self.screen_draw_width
-        height = self.screen_draw_height
-        YX = self.screen_draw_YX
-        YXlinemax = self.screen_draw_YXlinemax
-        Ybitmask = self.screen_draw_Ybitmask
-        colors = self.screen_draw_colors
-        pixel_mask = 1
-
-        while bitmap_length_bits > 0 and height != 0:
-            ch = bitmap[0]
-            bitmap = bitmap[1:]
-            for i in range(0, 8, bpp):
-                if bitmap_length_bits == 0:
-                    break
-                if y >= 0 and xx >= 0:
-                    if colors[(ch>>i) & pixel_mask] != 0:
-                        if YX < len(self.screen_framebuffer):
-                            self.screen_framebuffer[YX] |= Ybitmask
-                        else:
-                            # XXX: handle alignment
-                            #print('bug')
-                            pass
-                    else:
-                        if YX < len(self.screen_framebuffer):
-                            self.screen_framebuffer[YX] &= ~Ybitmask
-                        else:
-                            # XXX: handle alignment
-                            #print('bug')
-                            pass
-
-                bitmap_length_bits -= bpp
-
-                xx += 1
-                YX += 1
-                if YX >= YXlinemax:
-                    y += 1
-                    height -= 1
-                    YX = (y // 8) * self.SCREEN_WIDTH + x
-                    xx = x
-                    YXlinemax = YX + width
-                    Ybitmask = 1 << (y % 8)
-
-                if height == 0:
-                    break
-
-        self.screen_draw_x = x
-        self.screen_draw_y = y
-        self.screen_draw_width = width
-        self.screen_draw_height = height
-        self.screen_draw_YX = YX
-        self.screen_draw_YXlinemax = YXlinemax
-        self.screen_draw_Ybitmask = Ybitmask
-
     def hal_draw_bitmap_within_rect(self, x, y, width, height, colors, bpp, bitmap, bitmap_length_bits):
+        if bpp == 3 or bpp > 4:
+            return
+
         if x >= self.SCREEN_WIDTH or y >= self.SCREEN_HEIGHT:
             return
 
@@ -153,51 +87,66 @@ class Bagl:
         if y + height > self.SCREEN_HEIGHT:
             height = self.SCREEN_HEIGHT - y
 
-        YX = (y // 8) * self.SCREEN_WIDTH + x
-        Ybitmask = 1 << (y % 8)
-        YXlinemax = YX + width
+        pixel_mask = (1 << bpp) - 1
 
-        self.screen_draw_x = x
-        self.screen_draw_y = y
-        self.screen_draw_width = width
-        self.screen_draw_height = height
-        self.screen_draw_YX = YX
-        self.screen_draw_YXlinemax = YXlinemax
-        self.screen_draw_Ybitmask = Ybitmask
-        self.screen_draw_colors = colors
+        requested_x = x
+        requested_y = y
+        requested_xw = width + x
+        requested_yh = height + y
+        xx = requested_x
 
-        self.hal_draw_bitmap_within_rect_internal(bpp, bitmap, bitmap_length_bits)
+        bitmap = list(bitmap)
+        while bitmap:
+            ch = bitmap.pop(0)
+            for i in range(0, 8, bpp):
+                if xx >= 0 and x < self.SCREEN_WIDTH and requested_y < self.SCREEN_HEIGHT:
+                    pixel_color_index = (ch>>i) & pixel_mask
+                    color = colors[min(pixel_color_index, len(colors)-1)]
+                    self.m.draw_point(xx, requested_y, color)
+
+                xx += 1
+                if xx >= requested_xw:
+                    xx = requested_x
+                    requested_y += 1
+                    if requested_y >= requested_yh:
+                        return
 
     def hal_draw_rect(self, color, x, y, width, height):
         if x + width > self.SCREEN_WIDTH or x < 0:
-            return
+            if x > self.SCREEN_WIDTH:
+                return
+            else:
+                width = self.SCREEN_WIDTH - x
         if y + height > self.SCREEN_HEIGHT or y < 0:
-            return
+            if y > self.SCREEN_HEIGHT:
+                return
+            else:
+                height = self.SCREEN_HEIGHT - y
 
         YX = (y//8)*self.SCREEN_WIDTH + x
-        Ybitmask = 1<<(y%8)
         YXlinemax = YX + width
+        xx = x
+        requested_x = x
 
         i = width * height
         while i > 0:
             i -= 1
-            if color:
-                self.screen_framebuffer[YX] |= Ybitmask
-            else:
-                self.screen_framebuffer[YX] &= ~Ybitmask
+            self.m.draw_point(xx, y, color)
             YX += 1
+            xx += 1
             if YX >= YXlinemax:
                 y += 1
                 height -= 1
                 YX = (y // 8) * self.SCREEN_WIDTH + x
                 YXlinemax = YX + width
-                Ybitmask = 1<<(y%8)
+                xx = requested_x
             if height == 0:
                 break
 
     def compute_line_width(font_id, width, text, text_encoding):
         font = bagl_font.get(font_id)
         if not font:
+            print('[*] bagl: font not found')
             return 0
 
         xx = 0
@@ -236,6 +185,7 @@ class Bagl:
     def draw_string(self, font_id, fgcolor, bgcolor, x, y, width, height, text, text_encoding):
         font = bagl_font.get(font_id)
         if not font:
+            print('[*] bagl: unsupported font %d' % (font_id & bagl_font.BAGL_FONT_ID_MASK))
             return 0
 
         colors = [ bgcolor, fgcolor ]
@@ -348,7 +298,7 @@ class Bagl:
                                                   bpp,
                                                   bitmap, bitmap_length_bits)
 
-    def _display_bagl_rectangle(self, component, context):
+    def _display_bagl_rectangle(self, component, context, context_encoding, halignment, valignment):
         radius = component.radius
         radius = min(radius, min(component.width//2, component.height//2))
         if component.fill != BAGL_FILL:
@@ -384,6 +334,22 @@ class Bagl:
             for (x, y, width, height) in coords:
                 self.hal_draw_rect(component.fgcolor, x, y, width, height)
 
+        if context:
+            fgcolor, bgcolor = component.fgcolor, component.bgcolor
+            if component.fill == BAGL_FILL:
+                fgcolor, bgcolor = bgcolor, fgcolor
+            stroke = max(1, component.stroke * 2)
+            self.draw_string(component.font_id,
+                             fgcolor,
+                             bgcolor,
+                             component.x + halignment,	         	# XXX: take icon_width into account
+                             component.y + valignment,
+                             component.width - halignment - stroke,	# XXX: take icon_width into account
+                             component.height - valignment - stroke,
+                             context,
+                             context_encoding)
+
+
     def _display_bagl_labeline(self, component, text, halignment, baseline):
         if len(text) == 0:
             return
@@ -391,15 +357,15 @@ class Bagl:
         # XXX
         context_encoding = 0
         self.draw_string(component.font_id,
-                              component.fgcolor,
-                              component.bgcolor,
-                              component.x + halignment,
-                              component.y - baseline,
-                              component.width - halignment,
-                              component.height,
-                              text,
-                              context_encoding)
-        self.refresh()
+                         component.fgcolor,
+                         component.bgcolor,
+                         component.x + halignment,
+                         component.y - baseline,
+                         component.width - halignment,
+                         component.height,
+                         text,
+                         context_encoding)
+        #self.refresh()
 
     def _display_get_alignment(self, component, context, context_encoding):
         halignment = 0
@@ -453,13 +419,14 @@ class Bagl:
         ret = self._display_get_alignment(component, context, context_encoding)
         (halignment, valignment, baseline, char_height, strwidth) = ret
 
-        if component.type == BAGL_NONE:
+        type_ = component.type & (~BAGL_TYPE_FLAGS_MASK)
+        if type_ == BAGL_NONE:
             # TODO
             #self.renderer.clear()
             pass
-        elif component.type == BAGL_RECTANGLE:
-            self._display_bagl_rectangle(component, context)
-        elif component.type == BAGL_LABELINE:
+        elif type_ == BAGL_RECTANGLE:
+            self._display_bagl_rectangle(component, context, context_encoding, halignment, valignment)
+        elif type_ == BAGL_LABELINE:
             self._display_bagl_labeline(component, context, halignment, baseline)
-        elif component.type == BAGL_ICON:
+        elif type_ == BAGL_ICON:
             self._display_bagl_icon(component, context)

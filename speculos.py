@@ -60,6 +60,7 @@ if __name__ == '__main__':
     parser.add_argument('--color', default='MATTE_BLACK', choices=list(screen.Screen.COLORS.keys()), help='Nano color')
     parser.add_argument('-d', '--debug', action='store_true', help='Wait gdb connection to port 1234')
     parser.add_argument('-l', '--library', action='append', help='Additional library (eg. Bitcoin:app/btc.elf) which can be called through os_lib_call')
+    parser.add_argument('-m', '--model', default='nanos', choices=list(screen.MODELS.keys()))
     parser.add_argument('-n', '--headless', action='store_true', help="Don't display the GUI")
     parser.add_argument('-s', '--seed', action='store_true', default=DEFAULT_SEED, help='Seed')
     args = parser.parse_args()
@@ -76,6 +77,6 @@ if __name__ == '__main__':
         print('headless mode not supported')
         sys.exit(1)
     else:
-        screen.display(apdu, seph, args.color)
+        screen.display(apdu, seph, args.color, args.model)
 
     s2.close()

@@ -1,3 +1,4 @@
+from collections import namedtuple
 import sys
 
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel
@@ -10,11 +11,18 @@ from . import bagl
 BUTTON_LEFT  = 1
 BUTTON_RIGHT = 2
 
+Model = namedtuple('Model', 'name screen_size box_size')
+MODELS = {
+    'nanos': Model('Nano S', (128, 32), (100, 26)),
+    'blue': Model('Blue', (320, 480), (36, 26)),
+}
+
 class PaintWidget(QWidget):
-    def __init__(self,parent):
+    def __init__(self, parent, model):
         super(PaintWidget, self).__init__(parent)
         self.mPixmap = QPixmap()
         self.pixels = {}
+        self.model = model
 
     def paintEvent(self, event):
         if self.pixels:
@@ -35,6 +43,10 @@ class PaintWidget(QWidget):
             qp.drawPoint(x, y)
 
     def draw_point(self, x, y, color):
+        # There are only 2 colors on Nano S but the one passed in argument isn't
+        # always valid. Fix it here.
+        if self.model == 'nanos' and color != 0x000000:
+            color = 0x00fffb
         self.pixels[(x, y)] = color
 
 class Screen(QMainWindow):
@@ -50,22 +62,21 @@ class Screen(QMainWindow):
         'SYLVE_CYAN': 0x29f3f3,
     }
 
-    def __init__(self, apdu, seph, color, width=128, height=32):
+    def __init__(self, apdu, seph, color, model):
         self.apdu = apdu
         self.seph = seph
 
-        self.width = width
-        self.height = height
-        
+        self.width, self.height = MODELS[model].screen_size
+
         super().__init__()
 
         self._init_notifiers([ apdu, seph ])
 
-        self.setWindowTitle('Nano Emulator')
-        box_size_x, box_size_y = 100, 26
+        self.setWindowTitle('Ledger %s Emulator' % MODELS[model].name)
+        box_size_x, box_size_y = MODELS[model].box_size
         self.setGeometry(10, 10, self.width + box_size_x, self.height + box_size_y)
         self.setWindowFlags(Qt.FramelessWindowHint)
-        
+
         self.setAutoFillBackground(True)
         p = self.palette()
         p.setColor(self.backgroundRole(), QColor.fromRgb(self.COLORS[color]))
@@ -74,7 +85,7 @@ class Screen(QMainWindow):
         #painter.drawEllipse(QPointF(x,y), radius, radius);
 
         # Add paint widget and paint
-        self.m = PaintWidget(self)
+        self.m = PaintWidget(self, model)
         self.m.move(20, box_size_y // 2)
         self.m.resize(self.width, self.height)
 
@@ -82,7 +93,7 @@ class Screen(QMainWindow):
 
         self.show()
 
-        self.bagl = bagl.Bagl(self.m, width, height, color)
+        self.bagl = bagl.Bagl(self.m, self.width, self.height, color)
 
     def add_notifier(self, klass):
         n = QSocketNotifier(klass.s.fileno(), QSocketNotifier.Read, self)
@@ -137,9 +148,12 @@ class Screen(QMainWindow):
         '''Get the mouse location.'''
 
         self.mouse_offset = event.pos()
+
+        self.seph.handle_finger(self.mouse_offset.x(), self.mouse_offset.y(), True)
         QApplication.setOverrideCursor(Qt.DragMoveCursor)
 
     def mouseReleaseEvent(self, event):
+        self.seph.handle_finger(self.mouse_offset.x(), self.mouse_offset.y(), False)
         QApplication.restoreOverrideCursor()
 
     def mouseMoveEvent(self, event):
@@ -151,8 +165,8 @@ class Screen(QMainWindow):
         y_w = self.mouse_offset.y()
         self.move(x - x_w, y - y_w)
 
-def display(apdu, seph, color='MATTE_BLACK'):
+def display(apdu, seph, color='MATTE_BLACK', model='nanos'):
     app = QApplication(sys.argv)
-    display = Screen(apdu, seph, color)
+    display = Screen(apdu, seph, color, model)
     app.exec_()
     app.quit()
