@@ -214,9 +214,9 @@ class Bagl:
                     ch_width = ch & 0x3f
                 elif ch >= 0x80:
                     if ch & 0x20:
-                        font_symbol_id = BAGL_FONT_SYMBOLS_1
+                        font_symbol_id = bagl_font.BAGL_FONT_SYMBOLS_1
                     else:
-                        font_symbol_id = BAGL_FONT_SYMBOLS_0
+                        font_symbol_id = bagl_font.BAGL_FONT_SYMBOLS_0
                     font_symbols = bagl_font.get(font_symbol_id)
                     if font_symbols:
                         ch_width = font.characters[ch & 0x1f].char_width
@@ -268,9 +268,9 @@ class Bagl:
                     ch_width = ch & 0x3f
                 elif ch >= 0x80:
                     if ch & 0x20:
-                        font_symbol_id = BAGL_FONT_SYMBOLS_1
+                        font_symbol_id = bagl_font.BAGL_FONT_SYMBOLS_1
                     else:
-                        font_symbol_id = BAGL_FONT_SYMBOLS_0
+                        font_symbol_id = bagl_font.BAGL_FONT_SYMBOLS_0
                     font_symbols = bagl_font.get(font_symbol_id)
                     if font_symbols:
                         ch_bitmap = font.bitmap[font.characters[ch & 0x1f].bitmap_offset:]
