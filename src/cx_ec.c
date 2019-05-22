@@ -116,10 +116,10 @@ static int nid_from_curve(cx_curve_t curve) {
   case CX_CURVE_SECP256K1:
     nid = NID_secp256k1;
     break;
-#if 0
   case CX_CURVE_SECP256R1:
     nid = NID_X9_62_prime256v1;
     break;
+#if 0
   case CX_CURVE_SECP384R1:
     nid = NID_secp384r1;
     break;
