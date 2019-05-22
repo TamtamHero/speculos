@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "cx.h"
+#include "cx_crc.h"
 #include "cx_hash.h"
 #include "cx_math.h"
 #include "emulate.h"
@@ -122,6 +123,8 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
            unsigned int,   salt_len,
            uint8_t *,      perso,
            unsigned int,   perso_len);
+
+  SYSCALL3(cx_crc16_update, unsigned short, crc, const void *, b, size_t, len);
 
   SYSCALL8(cx_ecdsa_sign,
            const cx_ecfp_private_key_t *, key,

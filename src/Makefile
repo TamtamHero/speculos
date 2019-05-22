@@ -5,6 +5,7 @@ LDFLAGS := -static -L../openssl -lssl -lcrypto -ldl
 
 OBJS = \
 	cx_blake2b.o \
+	cx_crc.o \
 	cx_ec.o \
 	cx_hmac.o \
 	cx_ripemd160.o \
