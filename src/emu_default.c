@@ -24,6 +24,12 @@ unsigned long sys_os_global_pin_is_validated(void)
   return BOLOS_UX_OK;
 }
 
+unsigned long sys_os_global_pin_invalidate(void)
+{
+    /* return void actually */
+    return 0;
+}
+
 /*
  * TODO: ensure that source and destination address are valid.
  * TODO: map these data to the host filesystem.

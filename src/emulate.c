@@ -240,6 +240,8 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
 
   SYSCALL0(os_global_pin_is_validated);
 
+  SYSCALL0(os_global_pin_invalidate);
+
   SYSCALL1(os_lib_call, unsigned long *, call_parameters);
 
   case SYSCALL_os_lib_throw_ID_IN:
