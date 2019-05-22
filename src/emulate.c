@@ -172,6 +172,14 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
            uint8_t *,       out,
            size_t,          out_len);
 
+  SYSCALL6(cx_hmac,
+           cx_hmac_t *,     hmac,
+           int,             mode,
+           const uint8_t *, in,
+           unsigned int,    len,
+           uint8_t *,       out,
+           unsigned int,    out_len);
+
   SYSCALL6(cx_hmac_sha256,
            const uint8_t *, key,
            unsigned int,    key_len,
