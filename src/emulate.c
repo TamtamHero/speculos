@@ -4,6 +4,7 @@
 #include "cx.h"
 #include "cx_crc.h"
 #include "cx_hash.h"
+#include "cx_hmac.h"
 #include "cx_math.h"
 #include "emulate.h"
 #include "bolos_syscalls.h"
@@ -178,6 +179,11 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
            unsigned int,    len,
            uint8_t *,       out,
            unsigned int,    out_len);
+
+  SYSCALL3(cx_hmac_sha256_init,
+           cx_hmac_sha256_t *, hmac,
+           const uint8_t *,    key,
+           unsigned int,       key_len);
 
   SYSCALL5(cx_math_addm,
            uint8_t *,       r,
