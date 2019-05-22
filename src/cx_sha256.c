@@ -243,9 +243,9 @@ int cx_sha256_validate_context(const cx_sha256_t *ctx) {
 /* ----------------------------------------------------------------------- */
 /*                                                                         */
 /* ----------------------------------------------------------------------- */
-int cx_hash_sha256(const unsigned char *in, unsigned int len,
-                   unsigned char *out,
-                   unsigned int out_len __attribute__((unused))) {
+int sys_cx_hash_sha256(const unsigned char *in, unsigned int len,
+                       unsigned char *out,
+                       unsigned int out_len __attribute__((unused))) {
   cx_sha256_init(&G_cx.sha256);
   cx_sha256_update(&G_cx.sha256, in, len);
   cx_sha256_final(&G_cx.sha256, out);
