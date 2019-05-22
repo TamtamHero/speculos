@@ -28,6 +28,10 @@ static uint8_t const BIP32_SECP_SEED[] = {
 	'B', 'i', 't', 'c', 'o', 'i', 'n', ' ', 's', 'e', 'e', 'd'
 };
 
+static uint8_t const BIP32_NIST_SEED[] = {
+	'N', 'i', 's', 't', '2', '5', '6', 'p', '1', ' ', 's', 'e', 'e', 'd'
+};
+
 static void expand_seed_bip32(cx_curve_t curve, uint8_t *seed, unsigned int seed_length, uint8_t *result, const cx_curve_domain_t *domain)
 {
   const uint8_t *seed_key;
@@ -37,6 +41,10 @@ static void expand_seed_bip32(cx_curve_t curve, uint8_t *seed, unsigned int seed
   case CX_CURVE_256K1:
     seed_key = BIP32_SECP_SEED;
     seed_key_length = sizeof(BIP32_SECP_SEED);
+    break;
+  case CX_CURVE_256R1:
+    seed_key = BIP32_NIST_SEED;
+    seed_key_length = sizeof(BIP32_NIST_SEED);
     break;
 
   default:
@@ -121,8 +129,8 @@ unsigned long sys_os_perso_derive_node_bip32(cx_curve_t curve, const uint32_t *p
   ssize_t seed_size;
   unsigned int i;
 
-  if (curve != CX_CURVE_256K1) {
-    errx(1, "os_perso_derive_node_bip32: curve not implemented");
+  if (curve != CX_CURVE_256K1 && curve != CX_CURVE_SECP256R1) {
+    errx(1, "os_perso_derive_node_bip32: curve not implemented (0x%x)", curve);
   }
 
   domain = cx_ecfp_get_domain(curve);
