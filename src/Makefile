@@ -4,6 +4,7 @@ CFLAGS := -I../sdk -I../openssl/include -mthumb -W -Wall -fPIC -DOS_LITTLE_ENDIA
 LDFLAGS := -static -L../openssl -lssl -lcrypto -ldl
 
 OBJS = \
+	cx_aes.o \
 	cx_blake2b.o \
 	cx_crc.o \
 	cx_ec.o \

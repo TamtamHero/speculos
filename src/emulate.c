@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "cx.h"
+#include "cx_aes.h"
 #include "cx_crc.h"
 #include "cx_hash.h"
 #include "cx_hmac.h"
@@ -116,6 +117,19 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
   case SYSCALL_check_api_level_ID_IN:
     retid = SYSCALL_check_api_level_ID_OUT;
     break;
+
+  SYSCALL6(cx_aes,
+           const cx_aes_key_t *, key,
+           int,                  mode,
+           const uint8_t *,      in,
+           unsigned int,         len,
+           uint8_t *,            out,
+           unsigned int,         out_len);
+
+  SYSCALL3(cx_aes_init_key,
+           const uint8_t *, raw_key,
+           unsigned int,    key_len,
+           cx_aes_key_t *,  key);
 
   SYSCALL6(cx_blake2b_init2,
            cx_blake2b_t *, hash,
