@@ -155,4 +155,6 @@ typedef struct cx_ecfp_256_private_key_s cx_ecfp_private_key_t;
 
 const cx_curve_domain_t *cx_ecfp_get_domain(cx_curve_t curve);
 
+unsigned long sys_cx_ecfp_init_public_key(cx_curve_t curve, const unsigned char *rawkey, unsigned int key_len, cx_ecfp_public_key_t *key);
+
 #endif

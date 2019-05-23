@@ -10,6 +10,8 @@
 #include "exception.h"
 #include "emulate.h"
 
+#define CX_CURVE_RANGE(i,dom) ( ((i)>(CX_CURVE_##dom##_START)) && ((i)<(CX_CURVE_##dom##_END)) )
+
 static unsigned char const C_cx_secp256k1_a[]  = {
   // a:  0x00
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -527,4 +529,43 @@ int sys_cx_ecdsa_sign(const cx_ecfp_private_key_t *key, int UNUSED(mode), cx_md_
   EC_KEY_free(ec_key);
   BN_free(x);
   return ret;
+}
+
+unsigned long sys_cx_ecfp_init_public_key(cx_curve_t curve,
+                                          const unsigned char *rawkey, unsigned int key_len,
+                                          cx_ecfp_public_key_t *key) {
+  const cx_curve_domain_t *domain;
+  unsigned int expected_key_len;
+  unsigned int size;
+
+  domain = cx_ecfp_get_domain(curve);
+  size = domain->length;
+
+  memset(key, 0, sizeof(cx_ecfp_public_key_t));
+
+  if (rawkey != NULL) {
+    expected_key_len = 0;
+    if (rawkey[0] == 0x02) {
+      if (CX_CURVE_RANGE(curve, TWISTED_EDWARD) || CX_CURVE_RANGE(curve, MONTGOMERY)) {
+        expected_key_len = 1 + size;
+      }
+    } else if (rawkey[0] == 0x04) {
+      if (CX_CURVE_RANGE(curve, WEIERSTRASS) || CX_CURVE_RANGE(curve, TWISTED_EDWARD)) {
+        expected_key_len = 1 + size * 2;
+      }
+    }
+
+    if (expected_key_len == 0 || key_len != expected_key_len) {
+      THROW(INVALID_PARAMETER);
+    }
+  } else {
+    key_len = 0;
+  }
+
+  // init key
+  key->curve = curve;
+  key->W_len = key_len;
+  memcpy(key->W, rawkey, key_len);
+
+  return key_len;
 }
