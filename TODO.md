@@ -3,7 +3,6 @@
 - support of several SDK versions
 - add an interface to add button support from externals Python scripts
 - Nano X / Blue support
-- printf support
 - check api level
 - print call stack on app segfault
 - console ux
