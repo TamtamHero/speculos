@@ -80,13 +80,13 @@ class SeProxyHal:
 
         elif tag == SEPROXYHAL_TAG_SCREEN_DISPLAY_STATUS:
             #print('[*] seproxyhal: DISPLAY_STATUS %s' % repr(data), file=sys.stderr)
-            #display.display_status(data)
             screen.display_status(data)
             self._send_packet(SEPROXYHAL_TAG_DISPLAY_PROCESSED_EVENT)
 
         elif tag == SEPROXYHAL_TAG_SCREEN_DISPLAY_RAW_STATUS:
-            # TODO (Blue only)
-            print('SEPROXYHAL_TAG_SCREEN_DISPLAY_RAW_STATUS', file=sys.stderr)
+            #print('SEPROXYHAL_TAG_SCREEN_DISPLAY_RAW_STATUS', file=sys.stderr)
+            screen.display_raw_status(data)
+            self._send_packet(SEPROXYHAL_TAG_DISPLAY_PROCESSED_EVENT)
 
         elif tag == SEPROXYHAL_TAG_RAPDU:
             screen.forward_to_apdu_client(data)

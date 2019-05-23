@@ -141,6 +141,9 @@ class Screen(QMainWindow):
     def display_status(self, data):
         self.bagl.display_status(data)
 
+    def display_raw_status(self, data):
+        self.bagl.display_raw_status(data)
+
     def screen_update(self):
         self.bagl.refresh()
 

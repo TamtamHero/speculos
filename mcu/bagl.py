@@ -1,4 +1,5 @@
 import binascii
+from collections import namedtuple
 from construct import *
 
 from . import bagl_font
@@ -42,11 +43,18 @@ BAGL_FONT_ALIGNMENT_TOP             = 0x0000
 BAGL_FONT_ALIGNMENT_BOTTOM          = 0x1000
 BAGL_FONT_ALIGNMENT_MIDDLE          = 0x2000
 
+SEPROXYHAL_TAG_SCREEN_DISPLAY_RAW_STATUS_START = 0x00
+
+DrawState = namedtuple('DrawState', 'x y width height colors bpp')
+
 class Bagl:
     def __init__(self, m, width, height, color):
         self.m = m
         self.SCREEN_WIDTH = width
         self.SCREEN_HEIGHT = height
+
+        #self.bagl_raw_l = 0
+        self.draw_state = DrawState(0, 0, 0, 0, [], 0)
 
     def _draw_box(self, color):
         '''
@@ -74,7 +82,7 @@ class Bagl:
     def refresh(self):
         self.m.update()
 
-    def hal_draw_bitmap_within_rect(self, x, y, width, height, colors, bpp, bitmap, bitmap_length_bits):
+    def hal_draw_bitmap_within_rect(self, x, y, width, height, colors, bpp, bitmap):
         if bpp == 3 or bpp > 4:
             return
 
@@ -110,6 +118,9 @@ class Bagl:
                     requested_y += 1
                     if requested_y >= requested_yh:
                         return
+
+        #print('save', xx, requested_y, width, height, bpp)
+        self.draw_state = DrawState(x, requested_y, width, height, colors, bpp)
 
     def hal_draw_rect(self, color, x, y, width, height):
         if x + width > self.SCREEN_WIDTH or x < 0:
@@ -241,7 +252,7 @@ class Bagl:
                 ch_y = y
 
             if ch_bitmap:
-                self.hal_draw_bitmap_within_rect(xx, ch_y, ch_width, ch_height, colors, font.bpp, ch_bitmap, font.bpp * ch_width * ch_height)
+                self.hal_draw_bitmap_within_rect(xx, ch_y, ch_width, ch_height, colors, font.bpp, ch_bitmap)
             else:
                 self.hal_draw_rect(bgcolor, xx, ch_y, ch_width, ch_height)
 
@@ -273,8 +284,7 @@ class Bagl:
                 glyph.height,
                 colors,
                 glyph.bpp,
-                glyph.bitmap,
-                glyph.bpp * (glyph.width * glyph.height))
+                glyph.bitmap)
         else:
             if len(context) == 0:
                 print('len context == 0', binascii.hexlify(context))
@@ -296,7 +306,7 @@ class Bagl:
                                                   component.width, component.height,
                                                   colors,
                                                   bpp,
-                                                  bitmap, bitmap_length_bits)
+                                                  bitmap)
 
     def _display_bagl_rectangle(self, component, context, context_encoding, halignment, valignment):
         radius = component.radius
@@ -348,7 +358,6 @@ class Bagl:
                              component.height - valignment - stroke,
                              context,
                              context_encoding)
-
 
     def _display_bagl_labeline(self, component, text, halignment, valignment, baseline, char_height, strwidth, type_):
         if component.fill == BAGL_FILL:
@@ -448,3 +457,32 @@ class Bagl:
             self._display_bagl_labeline(component, context, halignment, valignment, baseline, char_height, strwidth, type_)
         elif type_ == BAGL_ICON:
             self._display_bagl_icon(component, context)
+
+    def display_raw_status(self, data):
+        if data[0] == SEPROXYHAL_TAG_SCREEN_DISPLAY_RAW_STATUS_START:
+            x = int.from_bytes(data[1:3], byteorder='big')
+            y = int.from_bytes(data[3:5], byteorder='big')
+            w = int.from_bytes(data[5:7], byteorder='big')
+            h = int.from_bytes(data[7:9], byteorder='big')
+            bpp = int.from_bytes(data[9:10], byteorder='big')
+            #self.bagl_raw_l = bpp * w * h
+
+            color_size = 4 * (1 << bpp)
+            colors = data[10:10+color_size]
+            bitmap = data[10+color_size:]
+
+            self.hal_draw_bitmap_within_rect(x, y, w, h, colors, bpp, bitmap)
+
+        else:
+            bitmap = data[1:]
+
+            x = self.draw_state.x
+            y = self.draw_state.y
+            w = self.draw_state.width
+            h = self.draw_state.height
+            colors = self.draw_state.colors
+            bpp = self.draw_state.bpp
+
+            self.hal_draw_bitmap_within_rect(x, y, w, h, colors, bpp, bitmap)
+
+        #self.bagl_raw_l -= raw_bits
