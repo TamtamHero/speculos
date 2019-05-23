@@ -17,6 +17,7 @@ SEPROXYHAL_TAG_RAPDU = 0x53
 SEPROXYHAL_TAG_GENERAL_STATUS = 0x60
 SEPROXYHAL_TAG_GENERAL_STATUS_LAST_COMMAND = 0x0000
 SEPROXYHAL_TAG_SCREEN_DISPLAY_STATUS = 0x65
+SEPROXYHAL_TAG_PRINTF_STATUS = 0x66
 SEPROXYHAL_TAG_SCREEN_DISPLAY_RAW_STATUS = 0x69
 
 SEPROXYHAL_TAG_FINGER_EVENT_TOUCH   = 0x01
@@ -85,11 +86,16 @@ class SeProxyHal:
 
         elif tag == SEPROXYHAL_TAG_SCREEN_DISPLAY_RAW_STATUS:
             # TODO (Blue only)
-            print('SEPROXYHAL_TAG_SCREEN_DISPLAY_RAW_STATUS')
-            pass
+            print('SEPROXYHAL_TAG_SCREEN_DISPLAY_RAW_STATUS', file=sys.stderr)
 
         elif tag == SEPROXYHAL_TAG_RAPDU:
             screen.forward_to_apdu_client(data)
+
+        elif tag == SEPROXYHAL_TAG_PRINTF_STATUS:
+            for b in data:
+                sys.stdout.write('%c' % chr(b))
+            sys.stdout.flush()
+            self._send_packet(SEPROXYHAL_TAG_DISPLAY_PROCESSED_EVENT)
 
         elif tag in [ 0x4f, 0x50 ]:
             pass
