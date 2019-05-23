@@ -3,6 +3,7 @@
 __pycache__/
 src/launcher
 tests/hello
+tests/test_aes
 tests/test_hmac
 tests/test_ripemd
 tests/test_sha2
