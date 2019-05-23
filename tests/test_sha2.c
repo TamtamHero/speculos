@@ -107,7 +107,7 @@ void test_sha512_monte(void **state __attribute__((unused))) {
   test_cavp_monte(CX_SHA512, initial_seed, expected_seed);
 }
 
-int main(int argc, char **argv) {
+int main(void) {
   const struct CMUnitTest tests[] = {cmocka_unit_test(test_sha224_short_msg),
                                      cmocka_unit_test(test_sha224_long_msg),
                                      cmocka_unit_test(test_sha224_monte),

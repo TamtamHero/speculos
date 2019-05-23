@@ -204,6 +204,7 @@ int cx_ripemd160_validate_context(const cx_ripemd160_t *ctx);
 const cx_hash_info_t *cx_hash_get_info(cx_md_t md_type);
 size_t cx_hash_get_size(const cx_hash_ctx *ctx);
 int cx_hash_init2(cx_hash_ctx *ctx, cx_md_t md_type);
+int cx_hash_init2_ex(cx_hash_ctx *ctx, cx_md_t md_type, size_t output_size);
 int cx_hash_update(cx_hash_ctx *ctx, const uint8_t *data, size_t len);
 int cx_hash_final(cx_hash_ctx *ctx, uint8_t *digest);
 
