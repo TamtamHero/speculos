@@ -350,22 +350,38 @@ class Bagl:
                              context_encoding)
 
 
-    def _display_bagl_labeline(self, component, text, halignment, baseline):
+    def _display_bagl_labeline(self, component, text, halignment, valignment, baseline, char_height, strwidth, type_):
+        if component.fill == BAGL_FILL:
+            y = component.y
+            height = component.height
+            if type_ == BAGL_LABELINE:
+                y -= baseline
+                height = char_height
+            self.hal_draw_rect(component.bgcolor, component.x, y, halignment, height)
+            self.hal_draw_rect(component.bgcolor, component.x + halignment + strwidth,
+                               y, component.width - (halignment + strwidth), height)
+
         if len(text) == 0:
             return
 
         # XXX
         context_encoding = 0
+        y = component.y
+        height = component.height
+        if type_ == BAGL_LABELINE:
+            y -= baseline
+        else:
+            y += valignment
+            height += valignment
         self.draw_string(component.font_id,
                          component.fgcolor,
                          component.bgcolor,
                          component.x + halignment,
-                         component.y - baseline,
+                         y,
                          component.width - halignment,
                          component.height,
                          text,
                          context_encoding)
-        #self.refresh()
 
     def _display_get_alignment(self, component, context, context_encoding):
         halignment = 0
@@ -426,7 +442,9 @@ class Bagl:
             pass
         elif type_ == BAGL_RECTANGLE:
             self._display_bagl_rectangle(component, context, context_encoding, halignment, valignment)
+        elif type_ == BAGL_LABEL:
+            self._display_bagl_labeline(component, context, halignment, valignment, baseline, char_height, strwidth, type_)
         elif type_ == BAGL_LABELINE:
-            self._display_bagl_labeline(component, context, halignment, baseline)
+            self._display_bagl_labeline(component, context, halignment, valignment, baseline, char_height, strwidth, type_)
         elif type_ == BAGL_ICON:
             self._display_bagl_icon(component, context)
