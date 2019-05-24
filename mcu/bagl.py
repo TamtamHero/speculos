@@ -23,6 +23,20 @@ bagl_component_t = Aligned(4, Struct(
 
 BAGL_FILL = 1
 
+BAGL_FILL_CIRCLE_1_OCTANT = 1
+BAGL_FILL_CIRCLE_2_OCTANT = 2
+BAGL_FILL_CIRCLE_3_OCTANT = 4
+BAGL_FILL_CIRCLE_4_OCTANT = 8
+BAGL_FILL_CIRCLE_5_OCTANT = 16
+BAGL_FILL_CIRCLE_6_OCTANT = 32
+BAGL_FILL_CIRCLE_7_OCTANT = 64
+BAGL_FILL_CIRCLE_8_OCTANT = 128
+BAGL_FILL_CIRCLE          = 0xFF
+BAGL_FILL_CIRCLE_3PI2_2PI = (BAGL_FILL_CIRCLE_1_OCTANT | BAGL_FILL_CIRCLE_2_OCTANT)
+BAGL_FILL_CIRCLE_PI_3PI2  = (BAGL_FILL_CIRCLE_3_OCTANT | BAGL_FILL_CIRCLE_4_OCTANT)
+BAGL_FILL_CIRCLE_0_PI2    = (BAGL_FILL_CIRCLE_5_OCTANT | BAGL_FILL_CIRCLE_6_OCTANT)
+BAGL_FILL_CIRCLE_PI2_PI   = (BAGL_FILL_CIRCLE_7_OCTANT | BAGL_FILL_CIRCLE_8_OCTANT)
+
 BAGL_NONE            = 0
 BAGL_BUTTON          = 1
 BAGL_LABEL           = 2
@@ -279,6 +293,75 @@ class Bagl:
 
         return (y << 16) | (xx & 0xFFFF)
 
+    def _draw_circle_helper(self, color, x_center, y_center, radius, octants, radiusint, colorint):
+        x, y = radius, 0
+        decisionOver2 = 1 - x
+        dradius = radius-radiusint
+        last_x = x
+        drawint = (radiusint > 0 and dradius > 0)
+
+        while y <= x:
+            if octants & 1:
+                if drawint:
+                    self.hal_draw_rect(colorint, x_center,   y+y_center, x-(dradius-1), 1)
+                    self.hal_draw_rect(color, x_center+x-(dradius-1), y+y_center, dradius, 1)
+                else:
+                    self.hal_draw_rect(color, x_center,   y+y_center-1, x, 1)
+            if octants & 2:
+                if drawint:
+                    if last_x != x:
+                        self.hal_draw_rect(colorint, x_center,   x+y_center, y-(dradius-1), 1)
+                    self.hal_draw_rect(color, x_center+y-(dradius-1), x+y_center, dradius, 1)
+                else:
+                    self.hal_draw_rect(color, x_center,   x+y_center-1, y, 1)
+            if octants & 4:
+                if drawint:
+                    self.hal_draw_rect(colorint, x_center-x, y+y_center, x-(dradius-1), 1)
+                    self.hal_draw_rect(color, x_center-x-(dradius-1), y+y_center, dradius, 1)
+                else:
+                    self.hal_draw_rect(color, x_center-x, y+y_center-1, x, 1)
+            if octants & 8:
+                if drawint:
+                    if last_x != x:
+                        self.hal_draw_rect(colorint, x_center-y, x+y_center, y-(dradius-1), 1)
+                    self.hal_draw_rect(color, x_center-y-(dradius-1), x+y_center, dradius, 1)
+                else:
+                    self.hal_draw_rect(color, x_center-y, x+y_center-1, y, 1)
+            if octants & 16:
+                if drawint:
+                    self.hal_draw_rect(colorint, x_center,   y_center-y, x-(dradius-1), 1)
+                    self.hal_draw_rect(color, x_center+x-(dradius-1), y_center-y, dradius, 1)
+                else:
+                    self.hal_draw_rect(color, x_center,   y_center-y, x, 1)
+            if octants & 32:
+                if drawint:
+                    if last_x != x:
+                        self.hal_draw_rect(colorint, x_center,   y_center-x, y-(dradius-1), 1)
+                    self.hal_draw_rect(color, x_center+y-(dradius-1), y_center-x, dradius, 1)
+                else:
+                    self.hal_draw_rect(color, x_center,   y_center-x, y, 1)
+            if octants & 64:
+                if drawint:
+                    self.hal_draw_rect(colorint, x_center-x, y_center-y, x-(dradius-1), 1)
+                    self.hal_draw_rect(color, x_center-x-(dradius-1), y_center-y, dradius, 1)
+                else:
+                    self.hal_draw_rect(color, x_center-x, y_center-y, x, 1)
+            if octants & 128:
+                if drawint:
+                    if last_x != x:
+                        self.hal_draw_rect(colorint, x_center-y, y_center-x, y-(dradius-1), 1)
+                    self.hal_draw_rect(color, x_center-y-(dradius-1), y_center-x, dradius, 1)
+                else:
+                  self.hal_draw_rect(color, x_center-y, y_center-x, y, 1)
+
+            last_x = x
+            y += 1
+            if decisionOver2 <= 0:
+                decisionOver2 += 2 * y + 1
+            else:
+                x -= 1
+                decisionOver2 += 2 * (y - x) + 1
+
     def _display_bagl_icon(self, component, context):
         if component.icon_id != 0:
             #print('[*] icon_id', component.icon_id)
@@ -328,8 +411,7 @@ class Bagl:
                                                   bitmap)
 
     def _display_bagl_rectangle(self, component, context, context_encoding, halignment, valignment):
-        radius = component.radius
-        radius = min(radius, min(component.width//2, component.height//2))
+        radius = min(component.radius, min(component.width//2, component.height//2))
         if component.fill != BAGL_FILL:
             coords = [
                 # centered top to bottom
@@ -362,6 +444,39 @@ class Bagl:
             ]
             for (x, y, width, height) in coords:
                 self.hal_draw_rect(component.fgcolor, x, y, width, height)
+
+        if radius > 1:
+            radiusint = 0
+            if component.fill != BAGL_FILL and component.stroke < radius:
+                radiusint = radius - component.stroke
+            self._draw_circle_helper(component.fgcolor,
+                                    component.x + radius,
+                                    component.y + radius,
+                                    radius,
+                                    BAGL_FILL_CIRCLE_PI2_PI,
+                                    radiusint,
+                                    component.bgcolor)
+            self._draw_circle_helper(component.fgcolor,
+                                    component.x + component.width - radius - component.stroke,
+                                    component.y + radius,
+                                    radius,
+                                    BAGL_FILL_CIRCLE_0_PI2,
+                                    radiusint,
+                                    component.bgcolor)
+            self._draw_circle_helper(component.fgcolor,
+                                    component.x + radius,
+                                    component.y + component.height - radius - component.stroke,
+                                    radius,
+                                    BAGL_FILL_CIRCLE_PI_3PI2,
+                                    radiusint,
+                                    component.bgcolor)
+            self._draw_circle_helper(component.fgcolor,
+                                    component.x + component.width - radius - component.stroke,
+                                    component.y + component.height - radius - component.stroke,
+                                    radius,
+                                    BAGL_FILL_CIRCLE_3PI2_2PI,
+                                    radiusint,
+                                    component.bgcolor)
 
         if context:
             fgcolor, bgcolor = component.fgcolor, component.bgcolor
