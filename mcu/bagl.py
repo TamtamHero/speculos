@@ -107,9 +107,9 @@ class Bagl:
         while bitmap:
             ch = bitmap.pop(0)
             for i in range(0, 8, bpp):
-                if xx >= 0 and x < self.SCREEN_WIDTH and requested_y < self.SCREEN_HEIGHT:
+                if xx >= 0 and x < self.SCREEN_WIDTH and requested_y >= 0 and requested_y < self.SCREEN_HEIGHT:
                     pixel_color_index = (ch>>i) & pixel_mask
-                    color = colors[min(pixel_color_index, len(colors)-1)]
+                    color = colors[pixel_color_index]
                     self.m.draw_point(xx, requested_y, color)
 
                 xx += 1
@@ -199,10 +199,29 @@ class Bagl:
             print('[*] bagl: unsupported font %d' % (font_id & bagl_font.BAGL_FONT_ID_MASK))
             return 0
 
-        colors = [ bgcolor, fgcolor ]
         if font.bpp > 1:
-            # TODO
-            pass
+            color_count = (1 << font.bpp) - 1
+            colors = [ bgcolor ]
+            for i in range(1, color_count):
+               colors.append(0)
+
+            for off in range(0, 3):
+               cfg = (fgcolor >> (off * 8)) & 0xFF
+               cbg = (bgcolor >> (off * 8)) & 0xFF
+
+               crange = max(cfg, cbg) - min(cfg, cbg) + 1
+               cinc = crange // color_count
+
+               if cfg > cbg:
+                   for i in range(1, color_count):
+                       colors[i] |= min(0xff, cbg + i * cinc) << (off * 8)
+               else:
+                   for i in range(1, color_count):
+                       colors[i] |= min(0xff, cfg + (color_count - i) * cinc) << (off * 8)
+
+            colors.append(fgcolor)
+        else:
+            colors = [ bgcolor, fgcolor ]
 
         width += x
         height += y
