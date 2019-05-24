@@ -59,7 +59,7 @@ BAGL_FONT_ALIGNMENT_MIDDLE          = 0x2000
 
 SEPROXYHAL_TAG_SCREEN_DISPLAY_RAW_STATUS_START = 0x00
 
-DrawState = namedtuple('DrawState', 'x y width height colors bpp')
+DrawState = namedtuple('DrawState', 'x y width height colors bpp xx yy')
 
 class Bagl:
     def __init__(self, m, width, height, color):
@@ -67,8 +67,7 @@ class Bagl:
         self.SCREEN_WIDTH = width
         self.SCREEN_HEIGHT = height
 
-        #self.bagl_raw_l = 0
-        self.draw_state = DrawState(0, 0, 0, 0, [], 0)
+        self.draw_state = DrawState(0, 0, 0, 0, [], 0, 0, 0)
 
     def _draw_box(self, color):
         '''
@@ -96,7 +95,7 @@ class Bagl:
     def refresh(self):
         self.m.update()
 
-    def hal_draw_bitmap_within_rect(self, x, y, width, height, colors, bpp, bitmap):
+    def hal_draw_bitmap_within_rect(self, x, y, width, height, colors, bpp, bitmap, restore=None):
         if bpp == 3 or bpp > 4:
             return
 
@@ -111,30 +110,32 @@ class Bagl:
 
         pixel_mask = (1 << bpp) - 1
 
-        requested_x = x
-        requested_y = y
         requested_xw = width + x
         requested_yh = height + y
-        xx = requested_x
+
+        if not restore:
+            xx, yy = x, y
+        else:
+            xx, yy = restore
 
         bitmap = list(bitmap)
         while bitmap:
             ch = bitmap.pop(0)
             for i in range(0, 8, bpp):
-                if xx >= 0 and x < self.SCREEN_WIDTH and requested_y >= 0 and requested_y < self.SCREEN_HEIGHT:
+                if xx >= 0 and xx < self.SCREEN_WIDTH and yy >= 0 and yy < self.SCREEN_HEIGHT:
                     pixel_color_index = (ch>>i) & pixel_mask
                     color = colors[pixel_color_index]
-                    self.m.draw_point(xx, requested_y, color)
+                    self.m.draw_point(xx, yy, color)
 
                 xx += 1
                 if xx >= requested_xw:
-                    xx = requested_x
-                    requested_y += 1
-                    if requested_y >= requested_yh:
+                    xx = x
+                    yy += 1
+                    if yy >= requested_yh:
+                        self.draw_state = DrawState(x, y, width, height, colors, bpp, xx, yy)
                         return
 
-        #print('save', xx, requested_y, width, height, bpp)
-        self.draw_state = DrawState(x, requested_y, width, height, colors, bpp)
+        self.draw_state = DrawState(x, y, width, height, colors, bpp, xx, yy)
 
     def hal_draw_rect(self, color, x, y, width, height):
         if x + width > self.SCREEN_WIDTH or x < 0:
@@ -599,10 +600,12 @@ class Bagl:
             w = int.from_bytes(data[5:7], byteorder='big')
             h = int.from_bytes(data[7:9], byteorder='big')
             bpp = int.from_bytes(data[9:10], byteorder='big')
-            #self.bagl_raw_l = bpp * w * h
 
             color_size = 4 * (1 << bpp)
-            colors = data[10:10+color_size]
+            colors = []
+            for i in range(10, 10 + color_size, 4):
+                color = int.from_bytes(data[i:i+4], byteorder='little')
+                colors.append(color)
             bitmap = data[10+color_size:]
 
             self.hal_draw_bitmap_within_rect(x, y, w, h, colors, bpp, bitmap)
@@ -616,7 +619,6 @@ class Bagl:
             h = self.draw_state.height
             colors = self.draw_state.colors
             bpp = self.draw_state.bpp
+            restore = (self.draw_state.xx, self.draw_state.yy)
 
-            self.hal_draw_bitmap_within_rect(x, y, w, h, colors, bpp, bitmap)
-
-        #self.bagl_raw_l -= raw_bits
+            self.hal_draw_bitmap_within_rect(x, y, w, h, colors, bpp, bitmap, restore)
