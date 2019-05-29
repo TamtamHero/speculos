@@ -2,11 +2,10 @@
 
 - support of several SDK versions
 - add an interface to add button support from externals Python scripts
-- Nano X / Blue support
+- Nano X support
 - check api level
 - print call stack on app segfault
 - console ux
-- headless mode
 
 ## Low priority
 
@@ -16,7 +15,3 @@
 - MCU: add animated text support
 - cleanup app loading
 - Qt: circle
-
-## Issues
-
-- Pressing left and right buttons aren't reliable. Maybe add a third button?

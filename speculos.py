@@ -75,10 +75,9 @@ if __name__ == '__main__':
     seph = seproxyhal.SeProxyHal(s2)
 
     if args.headless:
-        print('headless mode not supported')
-        sys.exit(1)
+        from mcu import headless as screen
     else:
         from mcu import screen
-        screen.display(apdu, seph, args.color, args.model)
+    screen.display(apdu, seph, args.color, args.model)
 
     s2.close()
