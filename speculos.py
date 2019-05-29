@@ -15,7 +15,8 @@ import sys
 import time
 
 from mcu import apdu as apdu_server
-from mcu import apdu, screen, seproxyhal
+from mcu import display
+from mcu import seproxyhal
 
 DEFAULT_SEED = 'glory promote mansion idle axis finger extra february uncover one trip resource lawn turtle enact monster seven myth punch hobby comfort wild raise skin'
 
@@ -57,10 +58,10 @@ def run_qemu(s1, s2, app_path, libraries=[], seed=DEFAULT_SEED, debug=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Emulate Ledger Nano apps.')
     parser.add_argument('app.elf', type=str, help='application path')
-    parser.add_argument('--color', default='MATTE_BLACK', choices=list(screen.Screen.COLORS.keys()), help='Nano color')
+    parser.add_argument('--color', default='MATTE_BLACK', choices=list(display.COLORS.keys()), help='Nano color')
     parser.add_argument('-d', '--debug', action='store_true', help='Wait gdb connection to port 1234')
     parser.add_argument('-l', '--library', action='append', help='Additional library (eg. Bitcoin:app/btc.elf) which can be called through os_lib_call')
-    parser.add_argument('-m', '--model', default='nanos', choices=list(screen.MODELS.keys()))
+    parser.add_argument('-m', '--model', default='nanos', choices=list(display.MODELS.keys()))
     parser.add_argument('-n', '--headless', action='store_true', help="Don't display the GUI")
     parser.add_argument('-s', '--seed', action='store_true', default=DEFAULT_SEED, help='Seed')
     args = parser.parse_args()
@@ -77,6 +78,7 @@ if __name__ == '__main__':
         print('headless mode not supported')
         sys.exit(1)
     else:
+        from mcu import screen
         screen.display(apdu, seph, args.color, args.model)
 
     s2.close()

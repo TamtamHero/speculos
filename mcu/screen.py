@@ -1,4 +1,3 @@
-from collections import namedtuple
 import sys
 
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel
@@ -7,15 +6,11 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QObject, QRunnable, QMetaObject, QSocketNotifier, pyqtSlot, pyqtSignal
 
 from . import bagl
+from .display import Display, COLORS, MODELS
 
 BUTTON_LEFT  = 1
 BUTTON_RIGHT = 2
 
-Model = namedtuple('Model', 'name screen_size box_size')
-MODELS = {
-    'nanos': Model('Nano S', (128, 32), (100, 26)),
-    'blue': Model('Blue', (320, 480), (36, 26)),
-}
 
 class PaintWidget(QWidget):
     def __init__(self, parent, model):
@@ -49,19 +44,7 @@ class PaintWidget(QWidget):
             color = 0x00fffb
         self.pixels[(x, y)] = color
 
-class Screen(QMainWindow):
-    COLORS = {
-        'LAGOON_BLUE': 0x7ebab5,
-        'JADE_GREEN': 0xb9ceac,
-        'FLAMINGO_PINK': 0xd8a0a6,
-        'SAFFRON_YELLOW': 0xf6a950,
-        'MATTE_BLACK': 0x111111,
-
-        'CHARLOTTE_PINK': 0xff5555,
-        'ARNAUD_GREEN': 0x79ff79,
-        'SYLVE_CYAN': 0x29f3f3,
-    }
-
+class Screen(QMainWindow, Display):
     def __init__(self, apdu, seph, color, model):
         self.apdu = apdu
         self.seph = seph
@@ -79,7 +62,7 @@ class Screen(QMainWindow):
 
         self.setAutoFillBackground(True)
         p = self.palette()
-        p.setColor(self.backgroundRole(), QColor.fromRgb(self.COLORS[color]))
+        p.setColor(self.backgroundRole(), QColor.fromRgb(COLORS[color]))
         self.setPalette(p)
 
         #painter.drawEllipse(QPointF(x,y), radius, radius);
@@ -118,12 +101,6 @@ class Screen(QMainWindow):
         n = self.notifiers.pop(fd)
         n.disconnect()
         del n
-
-    def forward_to_app(self, packet):
-        self.seph.to_app(packet)
-
-    def forward_to_apdu_client(self, packet):
-        self.apdu.forward_to_client(packet)
 
     def _key_event(self, event, pressed):
         key = event.key()
