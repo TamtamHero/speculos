@@ -1,9 +1,9 @@
 from collections import namedtuple
 
-Model = namedtuple('Model', 'name screen_size box_size')
+Model = namedtuple('Model', 'name screen_size box_position box_size')
 MODELS = {
-    'nanos': Model('Nano S', (128, 32), (100, 26)),
-    'blue': Model('Blue', (320, 480), (36, 26)),
+    'nanos': Model('Nano S', (128, 32), (20, 13), (100, 26)),
+    'blue': Model('Blue', (320, 480), (13, 13), (26, 26)),
 }
 
 COLORS = {

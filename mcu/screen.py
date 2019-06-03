@@ -50,6 +50,7 @@ class Screen(QMainWindow, Display):
         self.seph = seph
 
         self.width, self.height = MODELS[model].screen_size
+        self.box_position_x, self.box_position_y = MODELS[model].box_position
         box_size_x, box_size_y = MODELS[model].box_size
 
         super().__init__()
@@ -68,9 +69,8 @@ class Screen(QMainWindow, Display):
         #painter.drawEllipse(QPointF(x,y), radius, radius);
 
         # Add paint widget and paint
-        self.m_offset_x, self.m_offset_y = 20, box_size_y // 2
         self.m = PaintWidget(self, model)
-        self.m.move(self.m_offset_x, self.m_offset_y)
+        self.m.move(self.box_position_x, self.box_position_y)
         self.m.resize(self.width, self.height)
 
         self.setWindowIcon(QIcon('mcu/icon.png'))
@@ -140,10 +140,9 @@ class Screen(QMainWindow, Display):
         QApplication.setOverrideCursor(Qt.DragMoveCursor)
 
     def mouseReleaseEvent(self, event):
-        x = self.mouse_offset.x() - (self.m_offset_x + 1)
-        y = self.mouse_offset.y() - (self.m_offset_y + 1)
+        x = self.mouse_offset.x() - (self.box_position_x + 1)
+        y = self.mouse_offset.y() - (self.box_position_y + 1)
         if x >= 0 and x < self.width and y >= 0 and y < self.height:
-            print(x, y)
             self.seph.handle_finger(x, y, False)
         QApplication.restoreOverrideCursor()
 
