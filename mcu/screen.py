@@ -50,13 +50,13 @@ class Screen(QMainWindow, Display):
         self.seph = seph
 
         self.width, self.height = MODELS[model].screen_size
+        box_size_x, box_size_y = MODELS[model].box_size
 
         super().__init__()
 
         self._init_notifiers([ apdu, seph ])
 
         self.setWindowTitle('Ledger %s Emulator' % MODELS[model].name)
-        box_size_x, box_size_y = MODELS[model].box_size
         self.setGeometry(10, 10, self.width + box_size_x, self.height + box_size_y)
         self.setWindowFlags(Qt.FramelessWindowHint)
 
@@ -68,8 +68,9 @@ class Screen(QMainWindow, Display):
         #painter.drawEllipse(QPointF(x,y), radius, radius);
 
         # Add paint widget and paint
+        self.m_offset_x, self.m_offset_y = 20, box_size_y // 2
         self.m = PaintWidget(self, model)
-        self.m.move(20, box_size_y // 2)
+        self.m.move(self.m_offset_x, self.m_offset_y)
         self.m.resize(self.width, self.height)
 
         self.setWindowIcon(QIcon('mcu/icon.png'))
@@ -139,7 +140,11 @@ class Screen(QMainWindow, Display):
         QApplication.setOverrideCursor(Qt.DragMoveCursor)
 
     def mouseReleaseEvent(self, event):
-        self.seph.handle_finger(self.mouse_offset.x(), self.mouse_offset.y(), False)
+        x = self.mouse_offset.x() - (self.m_offset_x + 1)
+        y = self.mouse_offset.y() - (self.m_offset_y + 1)
+        if x >= 0 and x < self.width and y >= 0 and y < self.height:
+            print(x, y)
+            self.seph.handle_finger(x, y, False)
         QApplication.restoreOverrideCursor()
 
     def mouseMoveEvent(self, event):
