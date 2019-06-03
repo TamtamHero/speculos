@@ -102,6 +102,12 @@ class Screen(QMainWindow, Display):
         n.disconnect()
         del n
 
+    def forward_to_app(self, packet):
+        self.seph.to_app(packet)
+
+    def forward_to_apdu_client(self, packet):
+        self.apdu.forward_to_client(packet)
+
     def _key_event(self, event, pressed):
         key = event.key()
         if key in [ Qt.Key_Left, Qt.Key_Right ]:
