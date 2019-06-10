@@ -1,7 +1,7 @@
-The goal of this project is to emulate Ledger Nano apps on standard desktop
-computers. The emulator handles only a few syscalls made by common apps; for
-instance, syscalls related to app install, firmware update, or OS info aren't
-going to be implemented.
+The goal of this project is to emulate Ledger Nano and Ledger Blue apps on
+standard desktop computers. The emulator handles only a few syscalls made by
+common apps; for instance, syscalls related to app install, firmware update, or
+OS info aren't going to be implemented.
 
 ## Requirements
 
@@ -41,12 +41,61 @@ Basic usage:
 ./speculos.py apps/btc.elf
 ```
 
+The Ledger Nano S is the default model and the Ledger Blue can be specified on
+the command-line:
+
+```
+./speculos.py --model blue apps/btc-blue.elf
+```
+
+For more options, pass the `-h` or `--help` flag.
+
 ### Bitcoin Testnet app
 
 Launch the Bitcoin Testnet app, which requires the Bitcoin app:
 
 ```console
 ./speculos.py ./apps/btc-test.elf -l Bitcoin:./apps/btc.elf
+```
+
+### Debug
+
+Debug an app thanks to gdb:
+
+```console
+./speculos.py -d apps/btc.elf &
+./tools/debug.sh apps/btc.elf
+```
+
+## Clients
+
+Clients can communicate with the emulated device using APDUs, as usual. Speculos
+embbeds a TCP server (listening on `127.0.0.1:9999`) to forward APDUs to the
+target app.
+
+### blue-loader-python (ledgerblue)
+
+Most clients relies on the
+[blue-loader-python](https://github.com/LedgerHQ/blue-loader-python/) Python
+library which supports Speculos since release
+[0.1.24](https://pypi.org/project/ledgerblue/0.1.24/). This library can be
+installed through pip using the following command-line:
+
+```console
+pip3 install ledgerblue
+```
+
+If the environment variables `LEDGER_PROXY_ADDRESS` and `LEDGER_PROXY_PORT` are
+set, the library tries to use the device emulated by Speculos. For instance, the
+following command-line sends the APDU `e0 c4 00 00 00` (Bitcoin app APDU to get
+the version):
+
+```console
+$ ./speculos.py ./apps/btc.elf &
+$ echo 'e0c4000000' | LEDGER_PROXY_ADDRESS=127.0.0.1 LEDGER_PROXY_PORT=9999 python3 -m ledgerblue.runScript --apdu
+=> b'e0c4000000'
+<= b'1b30010308010003'9000
+<= Clear bytearray(b'\x1b0\x01\x03\x08\x01\x00\x03')
 ```
 
 ### btchip-python
@@ -57,20 +106,14 @@ Use [btchip-python](https://github.com/LedgerHQ/btchip-python) without a real de
 PYTHONPATH=$(pwd) LEDGER_PROXY_ADDRESS=127.0.0.1 LEDGER_PROXY_PORT=9999 python tests/testMultisigArmory.py
 ```
 
+Note: `btchip-python` relies on its own library to communicate with devices
+(physical or emulated) instead of `ledgerblue` to transmit APDUs.
+
 ### ledger-live-common
 
 ```console
 ./tools/ledger-live-http-proxy.py &
 DEBUG_COMM_HTTP_PROXY=http://127.0.0.1:9998 ledger-live getAddress -c btc --path "m/49'/0'/0'/0/0" --derivationMode segwit
-```
-
-### Debug
-
-Debug an app thanks to gdb:
-
-```console
-./speculos.py -d apps/btc.elf &
-./tools/debug.sh apps/btc.elf
 ```
 
 
