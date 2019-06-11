@@ -38,6 +38,7 @@ struct memory_s {
 static struct memory_s memory;
 static struct app_s apps[MAX_APP];
 static unsigned int napp;
+static bool trace_syscalls;
 
 static ucontext_t *context;
 static void *svc_addr;
@@ -76,7 +77,7 @@ static void sigill_handler(int sig_no, siginfo_t *UNUSED(info), void *vcontext)
   //fprintf(stderr, "[*] syscall: 0x%08lx (pc: 0x%08lx)\n", syscall, pc);
 
   ret = 0;
-  retid = emulate(syscall, parameters, &ret, false);
+  retid = emulate(syscall, parameters, &ret, trace_syscalls);
 
   /* handle the os_lib_call syscall specially since it modifies the context
    * directly */
@@ -349,16 +350,36 @@ static int load_apps(int argc, char *argv[])
   return 0;
 }
 
+static void usage(char *argv0)
+{
+  fprintf(stderr, "Usage: %s [-t] <app.elf> [libname:lib.elf ...]\n", argv0);
+  exit(EXIT_FAILURE);
+}
+
 int main(int argc, char *argv[])
 {
-  if (argc < 2) {
-    fprintf(stderr, "Usage: %s <app.elf> [libname:lib.elf ...]\n", argv[0]);
-    return 1;
+  int opt;
+
+  trace_syscalls = false;
+
+  while((opt = getopt(argc, argv, "t")) != -1) {
+    switch(opt) {
+    case 't':
+      trace_syscalls = true;
+      break;
+    default:
+      usage(argv[0]);
+      break;
+    }
+  }
+
+  if (argc - optind <= 0) {
+    usage(argv[0]);
   }
 
   reset_memory();
 
-  if (load_apps(argc - 1, &argv[1]) != 0)
+  if (load_apps(argc - optind, &argv[optind]) != 0)
     return 1;
 
   if (setup_signals() != 0)
