@@ -76,7 +76,7 @@ static void sigill_handler(int sig_no, siginfo_t *UNUSED(info), void *vcontext)
   //fprintf(stderr, "[*] syscall: 0x%08lx (pc: 0x%08lx)\n", syscall, pc);
 
   ret = 0;
-  retid = emulate(syscall, parameters, &ret);
+  retid = emulate(syscall, parameters, &ret, false);
 
   /* handle the os_lib_call syscall specially since it modifies the context
    * directly */
