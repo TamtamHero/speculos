@@ -1,6 +1,14 @@
 #ifndef _CX_EC_H
 #define _CX_EC_H
 
+#define CX_MASK_EC                  (7<<12)
+#define CX_ECDH_POINT               (1<<12)
+#define CX_ECDH_X                   (2<<12)
+#define CX_ECSCHNORR_ISO14888_XY    (3<<12)
+#define CX_ECSCHNORR_ISO14888_X     (4<<12)
+#define CX_ECSCHNORR_BSI03111       (5<<12)
+#define CX_ECSCHNORR_LIBSECP        (6<<12)
+#define CX_ECSCHNORR_Z              (7<<12)
 
 /** List of supported elliptic curves */
 enum cx_curve_e {
@@ -153,8 +161,34 @@ typedef struct cx_ecfp_256_extended_private_key_s cx_ecfp_256_extended_private_k
 typedef struct cx_ecfp_256_public_key_s cx_ecfp_public_key_t;
 typedef struct cx_ecfp_256_private_key_s cx_ecfp_private_key_t;
 
+/** Up to 640 bits Public Elliptic Curve key */
+struct cx_ecfp_640_public_key_s {
+  /** curve ID #cx_curve_e */
+  cx_curve_t    curve;
+  /** Public key length in bytes */
+  unsigned int  W_len;
+  /** Public key value starting at offset 0 */
+  unsigned char W[161];
+};
+/** Up to 640 bits Private Elliptic Curve key */
+struct cx_ecfp_640_private_key_s{
+  /** curve ID #cx_curve_e */
+  cx_curve_t    curve;
+  /** Public key length in bytes */
+  unsigned int  d_len;
+  /** Public key value starting at offset 0 */
+  unsigned char d[80];
+};
+/** Convenience type. See #cx_ecfp_640_public_key_s. */
+typedef struct cx_ecfp_640_public_key_s cx_ecfp_640_public_key_t                                                           ;
+/** Convenience type. See #cx_ecfp_640_private_key_s. */
+typedef struct cx_ecfp_640_private_key_s cx_ecfp_640_private_key_t;
+
 const cx_curve_domain_t *cx_ecfp_get_domain(cx_curve_t curve);
 
 unsigned long sys_cx_ecfp_init_public_key(cx_curve_t curve, const unsigned char *rawkey, unsigned int key_len, cx_ecfp_public_key_t *key);
+int sys_cx_ecfp_generate_pair(cx_curve_t curve, cx_ecfp_public_key_t *public_key, cx_ecfp_private_key_t *private_key, int keep_private);
+int sys_cx_ecfp_init_private_key(cx_curve_t curve, const uint8_t *raw_key, unsigned int key_len, cx_ecfp_private_key_t *key);
+int sys_cx_ecdh(const cx_ecfp_private_key_t *key, int mode, const uint8_t *public_point, size_t P_len, uint8_t *secret, size_t secret_len);
 
 #endif

@@ -3,6 +3,7 @@
 
 #include "cx.h"
 #include "cx_aes.h"
+#include "cx_ec.h"
 #include "cx_crc.h"
 #include "cx_hash.h"
 #include "cx_hmac.h"
@@ -173,6 +174,14 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
 
   SYSCALL3(cx_crc16_update, "(%u, %p, %u)",
            unsigned short, crc, const void *, b, size_t, len);
+
+  SYSCALL6(cx_ecdh, "(%p, %d, %p, %u, %p, %u)",
+          const cx_ecfp_private_key_t *, key,
+          int,                           mode,
+          const uint8_t *,               public_point,
+          size_t,                        P_len,
+          uint8_t *,                     secret,
+          size_t,                        secret_len);
 
   SYSCALL8(cx_ecdsa_sign, "(%p, 0x%x, %d, %p, %u, %p, %u, %p)",
            const cx_ecfp_private_key_t *, key,

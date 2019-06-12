@@ -395,35 +395,7 @@ int sys_cx_ecdsa_verify(const cx_ecfp_public_key_t *key, int UNUSED(mode), cx_md
   BN_bin2bn(key->W + 1, domain->length, x);
   BN_bin2bn(key->W + domain->length + 1, domain->length, y);
 
-  switch (key->curve) {
-  case CX_CURVE_SECP256K1:
-    nid = NID_secp256k1;
-    break;
-  case CX_CURVE_SECP256R1:
-    nid = NID_X9_62_prime256v1;
-    break;
-  case CX_CURVE_SECP384R1:
-    nid = NID_secp384r1;
-    break;
-  case CX_CURVE_SECP521R1:
-    nid = NID_secp521r1;
-    break;
-  case CX_CURVE_BrainPoolP256R1:
-    nid = NID_brainpoolP256r1;
-    break;
-  case CX_CURVE_BrainPoolP320R1:
-    nid = NID_brainpoolP320r1;
-    break;
-  case CX_CURVE_BrainPoolP384R1:
-    nid = NID_brainpoolP384r1;
-    break;
-  case CX_CURVE_BrainPoolP512R1:
-    nid = NID_brainpoolP512r1;
-    break;
-  default:
-    break;
-  }
-
+  nid = nid_from_curve(key->curve);
   EC_KEY *ec_key = EC_KEY_new_by_curve_name(nid);
   EC_KEY_set_public_key_affine_coordinates(ec_key, x, y);
 
@@ -568,4 +540,60 @@ unsigned long sys_cx_ecfp_init_public_key(cx_curve_t curve,
   memcpy(key->W, rawkey, key_len);
 
   return key_len;
+}
+
+int sys_cx_ecdh(const cx_ecfp_private_key_t *key, int UNUSED(mode), const uint8_t *public_point, size_t UNUSED(P_len), uint8_t *secret, size_t secret_len)
+{
+  const cx_curve_domain_t *domain;
+  EC_KEY *privkey, *peerkey;
+  //uint8_t point[65];
+  BIGNUM *x, *y;
+  int nid;
+
+  domain = cx_ecfp_get_domain(key->curve);
+
+  x = BN_new();
+  BN_bin2bn(key->d, key->d_len, x);
+  nid = nid_from_curve(key->curve);
+  privkey = EC_KEY_new_by_curve_name(nid);
+  EC_KEY_set_private_key(privkey, x);
+  BN_free(x);
+
+  x = BN_new();
+  y = BN_new();
+  BN_bin2bn(public_point + 1, domain->length, x);
+  BN_bin2bn(public_point + domain->length + 1, domain->length, y);
+
+  nid = nid_from_curve(key->curve);
+  peerkey = EC_KEY_new_by_curve_name(nid);
+  EC_KEY_set_public_key_affine_coordinates(peerkey, x, y);
+
+  BN_free(y);
+  BN_free(x);
+
+  secret_len = ECDH_compute_key(secret, secret_len, EC_KEY_get0_public_key(peerkey), privkey, NULL);
+
+  EC_KEY_free(privkey);
+  EC_KEY_free(peerkey);
+
+  /* XXX: not used in the result */
+  /*switch (mode & CX_MASK_EC) {
+  case CX_ECDH_POINT:
+    if (public_point[0] == 4) {
+      len = 1 + 2 * domain->length;
+    } else {
+      len = 1 + domain->length;
+    } 
+    break;
+    
+  case CX_ECDH_X:
+    len = domain->length;
+    break;
+
+  default:
+    THROW(INVALID_PARAMETER);
+    break;
+  }*/
+
+  return secret_len;
 }
