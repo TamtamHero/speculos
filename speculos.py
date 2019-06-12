@@ -27,11 +27,14 @@ def set_pdeath(sig):
     libc = ctypes.cdll.LoadLibrary('libc.so.6')
     libc.prctl(PR_SET_PDEATHSIG, sig)
 
-def run_qemu(s1, s2, app_path, libraries=[], seed=DEFAULT_SEED, debug=False):
+def run_qemu(s1, s2, app_path, libraries=[], seed=DEFAULT_SEED, debug=False, trace_syscalls=False):
     args = [ 'qemu-arm-static' ]
     if debug:
         args += [ '-g', '1234', '-singlestep' ]
-    args += [ './src/launcher', app_path ]
+    args += [ './src/launcher' ]
+    if trace_syscalls:
+        args += [ '-t' ]
+    args += [ app_path ]
     if libraries:
         args += libraries
 
@@ -64,11 +67,12 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--model', default='nanos', choices=list(display.MODELS.keys()))
     parser.add_argument('-n', '--headless', action='store_true', help="Don't display the GUI")
     parser.add_argument('-s', '--seed', action='store_true', default=DEFAULT_SEED, help='Seed')
+    parser.add_argument('-t', '--trace', action='store_true', help='Trace syscalls')
     args = parser.parse_args()
 
     s1, s2 = socket.socketpair()
 
-    run_qemu(s1, s2, getattr(args, 'app.elf'), args.library, args.seed, args.debug)
+    run_qemu(s1, s2, getattr(args, 'app.elf'), args.library, args.seed, args.debug, args.trace)
     s1.close()
 
     apdu = apdu_server.ApduServer()

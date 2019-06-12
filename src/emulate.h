@@ -4,6 +4,9 @@
 /* for ucontext_t */
 #include <signal.h>
 
+/* for bool */
+#include <stdbool.h>
+
 /* for uint8_t, uint16_t, etc. */
 #include <stdint.h>
 
@@ -29,7 +32,7 @@ typedef struct cx_ecfp_256_private_key_s cx_ecfp_private_key_t;
 # endif
 #endif
 
-int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret);
+int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret, bool verbose);
 
 unsigned long sys_os_lib_call(unsigned long *parameters);
 unsigned long sys_os_global_pin_is_validated(void);
