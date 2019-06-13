@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <unistd.h>
+
 #include "emulate.h"
 
 #define BOLOS_TAG_APPNAME			0x01
@@ -70,4 +73,28 @@ unsigned long sys_try_context_get(void)
 unsigned long sys_os_sched_last_status(void)
 {
   return 0; /* XXX */
+}
+
+unsigned long sys_check_api_level(void)
+{
+  return 0;
+}
+
+unsigned long sys_os_sched_exit(void)
+{
+  fprintf(stderr, "[*] exit syscall called (skipped)\n");
+  return 0;
+}
+
+unsigned long sys_reset(void)
+{
+  fprintf(stderr, "[*] reset syscall called (skipped)\n");
+  return 0;
+}
+
+unsigned long sys_os_lib_throw(unsigned int exception)
+{
+  fprintf(stderr, "[*] os_lib_throw(0x%x) unhandled\n", exception);
+  _exit(1);
+  return 0;
 }

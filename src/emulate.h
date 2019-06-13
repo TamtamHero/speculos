@@ -63,4 +63,11 @@ unsigned long sys_try_context_get(void);
 
 unsigned long sys_os_sched_last_status(void);
 
+unsigned long sys_check_api_level(void);
+
+unsigned long sys_os_sched_exit(void);
+unsigned long sys_reset(void);
+
+unsigned long sys_os_lib_throw(unsigned int exception);
+
 #endif

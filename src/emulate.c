@@ -147,9 +147,7 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
   int retid;
 
   switch(syscall) {
-  case SYSCALL_check_api_level_ID_IN:
-    retid = SYSCALL_check_api_level_ID_OUT;
-    break;
+  SYSCALL0(check_api_level);
 
   SYSCALL6(cx_aes, "(%p, 0x%x, %p, %u, %p, %u)",
            const cx_aes_key_t *, key,
@@ -314,9 +312,8 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
 
   SYSCALL1(os_lib_call, "(%p)", unsigned long *, call_parameters);
 
-  case SYSCALL_os_lib_throw_ID_IN:
-    retid = SYSCALL_os_lib_throw_ID_OUT;
-    break;
+  SYSCALL1(os_lib_throw, "(0x%x)",
+           unsigned int, exception);
 
   SYSCALL5(os_perso_derive_node_bip32, "(0x%x, %p, %u, %p, %p)",
            cx_curve_t,       curve,
@@ -331,10 +328,7 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
            uint8_t *,    buffer,
            size_t,       length);
 
-  case SYSCALL_os_sched_exit_ID_IN:
-    fprintf(stderr, "[*] exit syscall called (skipped)\n");
-    retid = SYSCALL_os_sched_exit_ID_OUT;
-    break;
+  SYSCALL0(os_sched_exit);
 
   SYSCALL0(os_sched_last_status);
 
@@ -345,9 +339,7 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
   SYSCALL1(try_context_set, "%p",
            try_context_t *, context);
 
-  case SYSCALL_reset_ID_IN:
-    retid = SYSCALL_reset_ID_OUT;
-    break;
+  SYSCALL0(reset);
 
   default:
     errx(1, "failed to emulate syscall 0x%08lx", syscall);
