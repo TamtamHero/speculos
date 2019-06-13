@@ -338,6 +338,11 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
 
   SYSCALL1(os_ux, "(%p)", bolos_ux_params_t *, params);
 
+  SYSCALL0(try_context_get);
+
+  SYSCALL1(try_context_set, "%p",
+           try_context_t *, context);
+
   case SYSCALL_reset_ID_IN:
     retid = SYSCALL_reset_ID_OUT;
     break;

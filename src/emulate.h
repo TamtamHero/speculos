@@ -18,6 +18,7 @@
 
 /* TODO */
 typedef void bolos_ux_params_t;
+typedef struct try_context_s try_context_t;
 
 typedef struct cx_ecfp_256_public_key_s cx_ecfp_public_key_t;
 typedef struct cx_ecfp_256_private_key_s cx_ecfp_private_key_t;
@@ -56,5 +57,8 @@ unsigned long sys_io_seproxyhal_spi_recv(uint8_t *buffer, uint16_t maxlength, un
 
 void unload_running_app(void);
 int run_lib(char *name, unsigned long *parameters);
+
+unsigned long sys_try_context_set(try_context_t *context);
+unsigned long sys_try_context_get(void);
 
 #endif

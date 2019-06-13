@@ -234,4 +234,9 @@
 #define SYSCALL_io_seproxyhal_spi_recv_ID_IN 0x600074d1UL
 #define SYSCALL_io_seproxyhal_spi_recv_ID_OUT 0x9000742bUL
 
+#define SYSCALL_try_context_get_ID_IN 0x600087b1UL
+#define SYSCALL_try_context_get_ID_OUT 0x90008722UL
+#define SYSCALL_try_context_set_ID_IN 0x60008875UL
+#define SYSCALL_try_context_set_ID_OUT 0x9000883cUL
+
 #endif

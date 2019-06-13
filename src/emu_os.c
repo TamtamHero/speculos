@@ -5,6 +5,8 @@
 
 #define PATH_MAX  1024
 
+static try_context_t *try_context;
+
 unsigned long sys_os_flags(void)
 {
   /* not in recovery and mcu unsigned */
@@ -48,4 +50,19 @@ unsigned long sys_os_lib_call(unsigned long *call_parameters)
   run_lib(libname, &call_parameters[1]);
 
   return 0xdeadbeef;
+}
+
+unsigned long sys_try_context_set(try_context_t *context)
+{
+  try_context_t *previous_context;
+
+  previous_context = try_context;
+  try_context = context;
+
+  return (unsigned long)previous_context;
+}
+
+unsigned long sys_try_context_get(void)
+{
+  return (unsigned long)try_context;
 }
