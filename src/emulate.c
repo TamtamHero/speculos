@@ -336,6 +336,8 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
     retid = SYSCALL_os_sched_exit_ID_OUT;
     break;
 
+  SYSCALL0(os_sched_last_status);
+
   SYSCALL1(os_ux, "(%p)", bolos_ux_params_t *, params);
 
   SYSCALL0(try_context_get);

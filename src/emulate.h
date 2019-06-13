@@ -61,4 +61,6 @@ int run_lib(char *name, unsigned long *parameters);
 unsigned long sys_try_context_set(try_context_t *context);
 unsigned long sys_try_context_get(void);
 
+unsigned long sys_os_sched_last_status(void);
+
 #endif

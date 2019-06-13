@@ -239,4 +239,7 @@
 #define SYSCALL_try_context_set_ID_IN 0x60008875UL
 #define SYSCALL_try_context_set_ID_OUT 0x9000883cUL
 
+#define SYSCALL_os_sched_last_status_ID_IN 0x60008a1eUL
+#define SYSCALL_os_sched_last_status_ID_OUT 0x90008ae6UL
+
 #endif

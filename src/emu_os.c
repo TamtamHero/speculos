@@ -66,3 +66,8 @@ unsigned long sys_try_context_get(void)
 {
   return (unsigned long)try_context;
 }
+
+unsigned long sys_os_sched_last_status(void)
+{
+  return 0; /* XXX */
+}
