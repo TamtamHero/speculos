@@ -289,13 +289,21 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
   SYSCALL1(cx_sha256_init, "(%p)", cx_sha256_t *, hash);
 
   SYSCALL0(io_seproxyhal_spi_is_status_sent);
+  SYSCALL0(io_seph_is_status_sent);
 
-  SYSCALL3(io_seproxyhal_spi_recv,  "(%p, %u, 0x%x)",
+  SYSCALL3(io_seproxyhal_spi_recv, "(%p, %u, 0x%x)",
+           uint8_t *,    buffer,
+           uint16_t,     maxlength,
+           unsigned int, flags);
+  SYSCALL3(io_seph_recv, "(%p, %u, 0x%x)",
            uint8_t *,    buffer,
            uint16_t,     maxlength,
            unsigned int, flags);
 
   SYSCALL2(io_seproxyhal_spi_send, "(%p, %u)",
+           uint8_t *, buffer,
+           uint16_t,  length);
+  SYSCALL2(io_seph_send, "(%p, %u)",
            uint8_t *, buffer,
            uint16_t,  length);
 

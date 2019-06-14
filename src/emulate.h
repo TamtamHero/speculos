@@ -55,6 +55,10 @@ unsigned long sys_io_seproxyhal_spi_is_status_sent(void);
 unsigned long sys_io_seproxyhal_spi_send(const uint8_t *buffer, uint16_t length);
 unsigned long sys_io_seproxyhal_spi_recv(uint8_t *buffer, uint16_t maxlength, unsigned int flags);
 
+unsigned long sys_io_seph_is_status_sent(void);
+unsigned long sys_io_seph_send(const uint8_t *buffer, uint16_t length);
+unsigned long sys_io_seph_recv(uint8_t *buffer, uint16_t maxlength, unsigned int flags);
+
 void unload_running_app(void);
 int run_lib(char *name, unsigned long *parameters);
 

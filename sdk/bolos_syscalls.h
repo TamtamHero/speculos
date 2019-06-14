@@ -242,4 +242,13 @@
 #define SYSCALL_os_sched_last_status_ID_IN 0x60008a1eUL
 #define SYSCALL_os_sched_last_status_ID_OUT 0x90008ae6UL
 
+#define SYSCALL_io_seph_send_ID_IN 0x60008381
+#define SYSCALL_io_seph_send_ID_OUT 0x900083ed
+                                                                                             
+#define SYSCALL_io_seph_recv_ID_IN 0x600085E4
+#define SYSCALL_io_seph_recv_ID_OUT 0x900085F7
+                                                                                             
+#define SYSCALL_io_seph_is_status_sent_ID_IN 0x600084bb
+#define SYSCALL_io_seph_is_status_sent_ID_OUT 0x90008405
+
 #endif

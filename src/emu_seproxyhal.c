@@ -57,10 +57,14 @@ unsigned long sys_io_seproxyhal_spi_is_status_sent(void)
   return 0;
 }
 
+unsigned long sys_io_seph_is_status_sent(void) __attribute__ ((weak, alias ("sys_io_seproxyhal_spi_is_status_sent")));
+
 unsigned long sys_io_seproxyhal_spi_send(const uint8_t *buffer, uint16_t length)
 {
   return writeall(SEPH_FILENO, buffer, length);
 }
+
+unsigned long sys_io_seph_send(const uint8_t *buffer, uint16_t length) __attribute__ ((weak, alias ("sys_io_seproxyhal_spi_send")));
 
 /* XXX: use flags */
 unsigned long sys_io_seproxyhal_spi_recv(uint8_t *buffer, uint16_t maxlength, unsigned int UNUSED(flags))
@@ -76,3 +80,5 @@ unsigned long sys_io_seproxyhal_spi_recv(uint8_t *buffer, uint16_t maxlength, un
 
   return size;
 }
+
+unsigned long sys_io_seph_recv(uint8_t *buffer, uint16_t maxlength, unsigned int flags) __attribute__ ((weak, alias ("sys_io_seproxyhal_spi_recv")));
