@@ -45,7 +45,7 @@ class PaintWidget(QWidget):
         self.pixels[(x, y)] = color
 
 class Screen(QMainWindow, Display):
-    def __init__(self, apdu, seph, color, model):
+    def __init__(self, apdu, seph, color, model, ontop):
         self.apdu = apdu
         self.seph = seph
 
@@ -59,7 +59,11 @@ class Screen(QMainWindow, Display):
 
         self.setWindowTitle('Ledger %s Emulator' % MODELS[model].name)
         self.setGeometry(10, 10, self.width + box_size_x, self.height + box_size_y)
-        self.setWindowFlags(Qt.FramelessWindowHint)
+
+        flags = Qt.FramelessWindowHint
+        if ontop:
+            flags |= Qt.CustomizeWindowHint | Qt.WindowStaysOnTopHint
+        self.setWindowFlags(flags)
 
         self.setAutoFillBackground(True)
         p = self.palette()
@@ -155,8 +159,8 @@ class Screen(QMainWindow, Display):
         y_w = self.mouse_offset.y()
         self.move(x - x_w, y - y_w)
 
-def display(apdu, seph, color='MATTE_BLACK', model='nanos'):
+def display(apdu, seph, color='MATTE_BLACK', model='nanos', ontop=False):
     app = QApplication(sys.argv)
-    display = Screen(apdu, seph, color, model)
+    display = Screen(apdu, seph, color, model, ontop)
     app.exec_()
     app.quit()

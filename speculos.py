@@ -66,9 +66,14 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--library', action='append', help='Additional library (eg. Bitcoin:app/btc.elf) which can be called through os_lib_call')
     parser.add_argument('-m', '--model', default='nanos', choices=list(display.MODELS.keys()))
     parser.add_argument('-n', '--headless', action='store_true', help="Don't display the GUI")
+    parser.add_argument('-o', '--ontop', action='store_true', help='The window stays on top of all other windows')
     parser.add_argument('-s', '--seed', action='store_true', default=DEFAULT_SEED, help='Seed')
     parser.add_argument('-t', '--trace', action='store_true', help='Trace syscalls')
     args = parser.parse_args()
+
+    if args.headless and args.ontop:
+         print('error: --headless and --ontop are mutually exclusive', file=sys.stderr)
+         sys.exit(1)
 
     s1, s2 = socket.socketpair()
 
@@ -82,6 +87,6 @@ if __name__ == '__main__':
         from mcu import headless as screen
     else:
         from mcu import screen
-    screen.display(apdu, seph, args.color, args.model)
+    screen.display(apdu, seph, args.color, args.model, args.ontop)
 
     s2.close()
