@@ -38,6 +38,7 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
 unsigned long sys_os_lib_call(unsigned long *parameters);
 unsigned long sys_os_global_pin_is_validated(void);
 unsigned long sys_os_global_pin_invalidate(void);
+unsigned long sys_os_perso_isonboarded(void);
 unsigned long sys_os_flags(void);
 int sys_nvm_write(void *dst_addr, void* src_addr, size_t src_len);
 unsigned long sys_os_perso_derive_node_bip32(cx_curve_t curve, const uint32_t *path, size_t length, uint8_t *private_key, uint8_t* chain);

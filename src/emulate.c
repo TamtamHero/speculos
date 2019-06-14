@@ -323,6 +323,8 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
   SYSCALL1(os_lib_throw, "(0x%x)",
            unsigned int, exception);
 
+  SYSCALL0(os_perso_isonboarded);
+
   SYSCALL5(os_perso_derive_node_bip32, "(0x%x, %p, %u, %p, %p)",
            cx_curve_t,       curve,
            const uint32_t *, path,

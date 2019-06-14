@@ -26,8 +26,13 @@ unsigned long sys_os_global_pin_is_validated(void)
 
 unsigned long sys_os_global_pin_invalidate(void)
 {
-    /* return void actually */
-    return 0;
+  /* return void actually */
+  return 0;
+}
+
+unsigned long sys_os_perso_isonboarded(void)
+{
+  return BOLOS_UX_OK;
 }
 
 /*
