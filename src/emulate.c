@@ -9,6 +9,7 @@
 #include "cx_hmac.h"
 #include "cx_math.h"
 #include "emulate.h"
+#include "emu_endorsement.h"
 #include "bolos_syscalls.h"
 
 #define print_syscall(fmt, ...)                           \
@@ -311,6 +312,15 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
            void *, dst_addr,
            void *, src_addr,
            size_t, src_len);
+
+  SYSCALL2(os_endorsement_get_public_key, "(%d, %p)",
+           uint8_t,   index,
+           uint8_t *, buffer);
+
+  SYSCALL3(os_endorsement_key1_sign_data, "(%p, %u, %p)",
+           uint8_t *, data,
+           size_t,    dataLength,
+           uint8_t *, signature);
 
   SYSCALL0(os_flags);
 

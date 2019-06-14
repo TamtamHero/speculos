@@ -19,6 +19,7 @@ OBJS = \
 	emu_cx_hash.o	\
 	emu_cx_math.o \
 	emu_default.o \
+	emu_endorsement.o \
 	emu_os.o \
 	emu_os_bip32.o \
 	emu_seproxyhal.o \
