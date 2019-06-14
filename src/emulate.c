@@ -344,7 +344,7 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
 
   SYSCALL0(try_context_get);
 
-  SYSCALL1(try_context_set, "%p",
+  SYSCALL1(try_context_set, "(%p)",
            try_context_t *, context);
 
   SYSCALL0(reset);
