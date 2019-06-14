@@ -72,7 +72,7 @@ unsigned long sys_try_context_get(void)
 
 unsigned long sys_os_sched_last_status(void)
 {
-  return 0; /* XXX */
+  return 0xB0105011; /* XXX */
 }
 
 unsigned long sys_check_api_level(void)
