@@ -38,6 +38,6 @@ class Headless(Display):
             for fd in rlist:
                 self.notifiers[fd].can_read(fd, self)
         
-def display(apdu, seph, color='MATTE_BLACK', model='nanos'):
+def display(apdu, seph, color='MATTE_BLACK', model='nanos', ontop=False):
     headless = Headless(apdu, seph)
     headless.run()
