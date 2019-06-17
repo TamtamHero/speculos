@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <execinfo.h>
 #include <sys/mman.h>
 /* fix for the following error on Windows (WSL):
@@ -18,10 +19,11 @@
 #include "bolos_syscalls.h"
 #include "emulate.h"
 
-#define DATA_ADDR		((void *)0x20001000)
-#define DATA_SIZE		(4096 * 10)
-#define LOAD_ADDR		((void *)0x40000000)
-#define LOAD_OFFSET	0x00010000
+#define DATA_ADDR       ((void *)0x20001000)
+#define DATA_SIZE       (4096 * 10)
+#define MAX_CODE_SIZE   0x10000
+#define LOAD_ADDR       ((void *)0x40000000)
+#define LOAD_OFFSET     0x00010000
 
 #define MAX_APP       16
 #define MAIN_APP_NAME "main"
@@ -44,7 +46,8 @@ static unsigned int napp;
 static bool trace_syscalls;
 
 static ucontext_t *context;
-static void *svc_addr;
+static unsigned long *svc_addr;
+static unsigned int n_svc_call;
 
 static void crash_handler(int sig_no)
 {
@@ -59,6 +62,18 @@ static void crash_handler(int sig_no)
   _exit(1);
 }
 
+static bool is_syscall_instruction(unsigned long addr)
+{
+  unsigned int i;
+
+  for (i = 0; i < n_svc_call; i++) {
+    if (svc_addr[i] == addr)
+      return true;
+  }
+
+  return false;
+}
+
 static void sigill_handler(int sig_no, siginfo_t *UNUSED(info), void *vcontext)
 {
   unsigned long pc, syscall, ret;
@@ -70,7 +85,7 @@ static void sigill_handler(int sig_no, siginfo_t *UNUSED(info), void *vcontext)
   parameters = (unsigned long *)context->uc_mcontext.arm_r1;
   pc = context->uc_mcontext.arm_pc;
 
-  if (context->uc_mcontext.arm_pc != (unsigned long)svc_addr) {
+  if (!is_syscall_instruction(context->uc_mcontext.arm_pc)) {
     fprintf(stderr, "[*] unhandled instruction at pc 0x%08lx\n", pc);
     fprintf(stderr, "    it would have triggered a crash on a real device\n");
     crash_handler(sig_no);
@@ -87,8 +102,17 @@ static void sigill_handler(int sig_no, siginfo_t *UNUSED(info), void *vcontext)
   if (syscall == SYSCALL_os_lib_call_ID_IN)
     return;
 
-  context->uc_mcontext.arm_r0 = retid;
-  context->uc_mcontext.arm_r1 = ret;
+  /* In some versions of the SDK, a few syscalls don't use SVC_Call to issue
+   * syscalls but call the svc instruction directly. I don't remember why it
+   * fixes the issue however... */
+  if (n_svc_call > 1) {
+    parameters[0] = retid;
+    parameters[1] = ret;
+  } else {
+    /* Default SVC_Call behavior */
+    context->uc_mcontext.arm_r0 = retid;
+    context->uc_mcontext.arm_r1 = ret;
+  }
 
   /* skip undefined (originally svc) instruction */
   context->uc_mcontext.arm_pc += 2;
@@ -125,26 +149,60 @@ static int setup_signals(void)
  */
 static int patch_svc(void *p, size_t size)
 {
-  svc_addr = memmem(p, size, "\x01\xdf\x70\x47", 4);
-  if (svc_addr == NULL) {
-    warnx("failed to find SVC_call");
-    return -1;
-  }
+  unsigned char *addr, *end, *next;
+  int ret;
+
+  /* XXX: hardcoded limit to avoid patching data */
+  if (size > MAX_CODE_SIZE)
+    size = MAX_CODE_SIZE;
 
   if (mprotect(p, size, PROT_WRITE) != 0) {
     warn("mprotect(PROT_WRITE)");
     return -1;
   }
 
-  /* undefined instruction */
-  memcpy(svc_addr, "\xff\xde", 2);
+  n_svc_call = 0;
+  svc_addr = NULL;
+  addr = p;
+  end = addr + size;
+  ret = 0;
+
+  while (addr < end - 2) {
+    next = memmem(addr, end - addr, "\x01\xdf", 2);
+    if (next == NULL)
+      break;
+
+    /* instructions are aligned on 2 bytes */
+    if ((unsigned long)addr & 1 && 0) {
+      addr = (unsigned char *)next + 1;
+      continue;
+    }
+
+    svc_addr = realloc(svc_addr, (n_svc_call + 1) * sizeof(unsigned long));
+    if (svc_addr == NULL)
+      err(1, "realloc");
+    svc_addr[n_svc_call] = (unsigned long)next;
+
+    /* undefined instruction */
+    memcpy(next, "\xff\xde", 2);
+
+    fprintf(stderr, "[*] patching svc instruction at %p\n", next);
+
+    addr = (unsigned char *)next + 2;
+    n_svc_call++;
+  }
 
   if (mprotect(p, size, PROT_READ | PROT_EXEC) != 0) {
     warn("mprotect(PROT_READ | PROT_EXEC)");
     return -1;
   }
 
-  return 0;
+  if (n_svc_call == 0) {
+    warnx("failed to find SVC_call");
+    return -1;
+  }
+
+  return ret;
 }
 
 static struct app_s *search_app_by_name(char *name)
