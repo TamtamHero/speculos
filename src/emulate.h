@@ -51,6 +51,7 @@ int sys_cx_ecfp_generate_pair(cx_curve_t curve, cx_ecfp_public_key_t *public_key
 int sys_cx_ecfp_init_private_key(cx_curve_t curve, const uint8_t *raw_key, unsigned int key_len, cx_ecfp_private_key_t *key);
 unsigned long sys_cx_hash(cx_hash_t *hash, int mode, const uint8_t *in, size_t len, uint8_t *out, size_t out_len);
 unsigned long sys_cx_rng(uint8_t *buffer, unsigned int length);
+unsigned long sys_cx_rng_u8(void);
 
 unsigned long sys_io_seproxyhal_spi_is_status_sent(void);
 unsigned long sys_io_seproxyhal_spi_send(const uint8_t *buffer, uint16_t length);

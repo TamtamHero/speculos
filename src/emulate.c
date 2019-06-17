@@ -287,6 +287,8 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
            uint8_t *,    buffer,
            unsigned int, length);
 
+  SYSCALL0(cx_rng_u8);
+
   SYSCALL1(cx_sha256_init, "(%p)", cx_sha256_t *, hash);
 
   SYSCALL0(io_seproxyhal_spi_is_status_sent);

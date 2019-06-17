@@ -27,3 +27,11 @@ unsigned long sys_cx_rng(uint8_t *buffer, unsigned int length)
   return 0;
 }
 
+unsigned long sys_cx_rng_u8(void)
+{
+  uint8_t n;
+
+  sys_cx_rng(&n, sizeof(n));
+
+  return n;
+}
