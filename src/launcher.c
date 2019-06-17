@@ -8,6 +8,9 @@
 #include <unistd.h>
 #include <execinfo.h>
 #include <sys/mman.h>
+/* fix for the following error on Windows (WSL):
+ * fstat: Value too large for defined data type */
+#define _FILE_OFFSET_BITS 64
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 #include <sys/types.h>
