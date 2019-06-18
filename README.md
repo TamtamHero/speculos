@@ -6,7 +6,7 @@ OS info aren't going to be implemented.
 ## Requirements
 
 ```console
-sudo apt install qemu-user-static python3-pyqt5 python3-construct python3-mnemonic gcc-arm-linux-gnueabihf gdb-multiarch
+sudo apt install qemu-user-static python3-pyqt5 python3-construct python3-mnemonic gcc-arm-linux-gnueabihf libc6-dev-armhf-cross gdb-multiarch
 ```
 
 The Python packages are used to emulate the device screen.
