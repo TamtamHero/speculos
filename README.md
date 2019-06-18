@@ -128,36 +128,3 @@ The `svc` instruction is replaced with `udf` (undefined) to generate a `SIGILL`
 signal upon execution. It allows to catch syscalls and emulate them.
 
 Apps can be debugged with `gdb-multiarch` thanks to `qemu-arm-static`.
-
-
-## Syscall emulation
-
-Apps don't use a lot of syscalls. For instance, here is the complete list of
-syscalls used by the BTC app:
-
-- system calls:
-    - `check_api_level`
-    - `reset`
-    - `nvm_write`
-    - `os_perso_derive_node_bip32`
-    - `os_global_pin_is_validated`
-    - `os_sched_exit`
-    - `os_ux`
-    - `os_lib_throw`
-    - `os_flags`
-    - `os_registry_get_current_app_tag`
-- crypto syscalls, to be implemented using standard crypto lib:
-    - `cx_rng`
-    - `cx_hash`
-    - `cx_ripemd160_init`
-    - `cx_sha256_init`
-    - `cx_blake2b_init2`
-    - `cx_hmac_sha256`
-    - `cx_ecfp_init_private_key`
-    - `cx_ecfp_generate_pair`
-    - `cx_ecdsa_sign`
-    - `cx_ecdsa_verify`
-- IO syscalls:
-    - `io_seproxyhal_spi_send`
-    - `io_seproxyhal_spi_is_status_sent`
-    - `io_seproxyhal_spi_recv`
