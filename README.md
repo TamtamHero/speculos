@@ -44,7 +44,7 @@ Basic usage:
 The Ledger Nano S is the default model and the Ledger Blue can be specified on
 the command-line:
 
-```
+```console
 ./speculos.py --model blue apps/btc-blue.elf
 ```
 
