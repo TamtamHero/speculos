@@ -48,6 +48,7 @@ class Screen(QMainWindow, Display):
     def __init__(self, apdu, seph, color, model, ontop):
         self.apdu = apdu
         self.seph = seph
+        self.model = model
 
         self.width, self.height = MODELS[model].screen_size
         self.box_position_x, self.box_position_y = MODELS[model].box_position
@@ -128,9 +129,13 @@ class Screen(QMainWindow, Display):
 
     def display_status(self, data):
         self.bagl.display_status(data)
+        if MODELS[self.model].name == 'blue':
+            self.screen_update()
 
     def display_raw_status(self, data):
         self.bagl.display_raw_status(data)
+        if MODELS[self.model].name == 'blue':
+            self.screen_update()
 
     def screen_update(self):
         self.bagl.refresh()
