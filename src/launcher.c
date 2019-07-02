@@ -21,7 +21,7 @@
 
 #define DATA_ADDR       ((void *)0x20001000)
 #define DATA_SIZE       (4096 * 10)
-#define MAX_CODE_SIZE   0x10000
+#define MAX_CODE_SIZE   0x9000  /* arbitrarily and probably invalid value */
 #define LOAD_ADDR       ((void *)0x40000000)
 #define LOAD_OFFSET     0x00010000
 
@@ -152,7 +152,8 @@ static int patch_svc(void *p, size_t size)
   unsigned char *addr, *end, *next;
   int ret;
 
-  /* XXX: hardcoded limit to avoid patching data */
+  /* XXX: hardcoded limit to avoid patching bytes after the .text section.
+   * XXX:  An ELF parser should be used instead. */
   if (size > MAX_CODE_SIZE)
     size = MAX_CODE_SIZE;
 
