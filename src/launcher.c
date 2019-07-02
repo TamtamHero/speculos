@@ -157,8 +157,8 @@ static int patch_svc(void *p, size_t size)
   if (size > MAX_CODE_SIZE)
     size = MAX_CODE_SIZE;
 
-  if (mprotect(p, size, PROT_WRITE) != 0) {
-    warn("mprotect(PROT_WRITE)");
+  if (mprotect(p, size, PROT_READ | PROT_WRITE) != 0) {
+    warn("mprotect(PROT_READ | PROT_WRITE)");
     return -1;
   }
 
