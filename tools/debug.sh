@@ -11,7 +11,7 @@ source ./tools/gdbinit
 set architecture arm
 target remote 127.0.0.1:1234
 handle SIGILL nostop pass noprint
-add-symbol-file ${app} 0x40000000
+add-symbol-file "${app}" 0x40000000
 b *0x40000000
 c
 EOF
