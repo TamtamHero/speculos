@@ -66,6 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--library', action='append', help='Additional library (eg. Bitcoin:app/btc.elf) which can be called through os_lib_call')
     parser.add_argument('-m', '--model', default='nanos', choices=list(display.MODELS.keys()))
     parser.add_argument('-n', '--headless', action='store_true', help="Don't display the GUI")
+    parser.add_argument('-x', '--text', action='store_true', help="Text UI (implies --headless)")
     parser.add_argument('-o', '--ontop', action='store_true', help='The window stays on top of all other windows')
     parser.add_argument('-s', '--seed', action='store_true', default=DEFAULT_SEED, help='Seed')
     parser.add_argument('-t', '--trace', action='store_true', help='Trace syscalls')
@@ -83,7 +84,13 @@ if __name__ == '__main__':
     apdu = apdu_server.ApduServer()
     seph = seproxyhal.SeProxyHal(s2)
 
-    if args.headless:
+    if args.text:
+        if args.model != 'nanos':
+            raise Exception("Unsupported model with -x")
+
+        args.headless = True
+        from mcu import screen_text as screen
+    elif args.headless:
         from mcu import headless as screen
     else:
         from mcu import screen

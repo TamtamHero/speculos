@@ -372,9 +372,9 @@ class Bagl:
                 return
 
             if len(context) != 0:
-                assert (1 << glyph.bpp) * 4 == len(context)
+                # assert (1 << glyph.bpp) * 4 == len(context)
                 colors = []
-                for i in range(0, 1 << bpp):
+                for i in range(0, 1 << glyph.bpp):
                     color = int.from_bytes(context[i*4:(i+1)*4], byteorder='big')
                     colors.append(color)
             else:
