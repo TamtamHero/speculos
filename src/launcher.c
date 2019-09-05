@@ -105,7 +105,7 @@ static void sigill_handler(int sig_no, siginfo_t *UNUSED(info), void *vcontext)
   /* In some versions of the SDK, a few syscalls don't use SVC_Call to issue
    * syscalls but call the svc instruction directly. I don't remember why it
    * fixes the issue however... */
-  if (n_svc_call > 1) {
+  if (n_svc_call > 1 && 0) {
     parameters[0] = retid;
     parameters[1] = ret;
   } else {

@@ -227,6 +227,12 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
            uint8_t *,       out,
            size_t,          out_len);
 
+  SYSCALL4(cx_hash_sha512, "(%p, %u, %p, %u)",
+          const uint8_t *, in,
+          size_t,          len,
+          uint8_t *,       out,
+          size_t,          out_len);
+
   SYSCALL6(cx_hmac, "(%p, 0x%x, %p, %u, %p, %u)",
            cx_hmac_t *,     hmac,
            int,             mode,

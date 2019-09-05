@@ -424,7 +424,7 @@ int cx_sha512_final(cx_sha512_t *ctx, uint8_t *digest) {
   return 1;
 }
 
-int cx_hash_sha512(const unsigned char *in, unsigned int len,
+int sys_cx_hash_sha512(const unsigned char *in, unsigned int len,
                    unsigned char *out,
                    unsigned int out_len __attribute__((unused))) {
   cx_sha512_init(&G_cx.sha512);
