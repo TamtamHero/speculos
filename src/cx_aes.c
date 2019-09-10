@@ -52,11 +52,24 @@ static void cx_memxor(uint8_t *buf1, const uint8_t *buf2, size_t len) {
 int sys_cx_aes(const cx_aes_key_t *key, int mode,
                const unsigned char *in, unsigned int len,
                unsigned char *out, unsigned int out_len) {
+  return sys_cx_aes_iv(key, mode,  NULL, 0,  in, len, out, out_len);
+}
+
+int sys_cx_aes_iv(const cx_aes_key_t *key, int mode,
+               const unsigned char  *IV, unsigned int iv_len,
+               const unsigned char *in, unsigned int len,
+               unsigned char *out, unsigned int out_len) {
   unsigned char block[CX_AES_BLOCK_SIZE], last[CX_AES_BLOCK_SIZE*2];
   unsigned int len_out;
 
   if (len % CX_AES_BLOCK_SIZE != 0) {
     err(1, "cx_aes: unsupported size %u (the vault app is the only app currently supported), please open an issue", len);
+  }
+
+  if (IV) {
+    if(iv_len != CX_AES_BLOCK_SIZE){
+      err(1, "cx_aes: unsupported iv_len %u (the vault app is the only app currently supported), please open an issue", iv_len);
+    }
   }
 
   if (!(mode & (CX_LAST | CX_PAD_NONE))) {
@@ -70,6 +83,11 @@ int sys_cx_aes(const cx_aes_key_t *key, int mode,
 
   memset(block, 0, sizeof(block));
   memset(last, 0, sizeof(last));
+
+  if (IV) {
+    memmove(block, IV, CX_AES_BLOCK_SIZE);
+    memmove(last, IV, CX_AES_BLOCK_SIZE);
+  }
 
   if ((mode & CX_MASK_CHAIN) == CX_CHAIN_CBC) {
     if ((mode & CX_MASK_SIGCRYPT) == CX_ENCRYPT) {

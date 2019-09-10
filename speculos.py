@@ -18,7 +18,7 @@ from mcu import apdu as apdu_server
 from mcu import display
 from mcu import seproxyhal
 
-DEFAULT_SEED = 'glory promote mansion idle axis finger extra february uncover one trip resource lawn turtle enact monster seven myth punch hobby comfort wild raise skin'
+DEFAULT_MNEMONIC = 'glory promote mansion idle axis finger extra february uncover one trip resource lawn turtle enact monster seven myth punch hobby comfort wild raise skin'
 
 def set_pdeath(sig):
     '''Set the parent death signal of the calling process.'''
@@ -27,7 +27,7 @@ def set_pdeath(sig):
     libc = ctypes.cdll.LoadLibrary('libc.so.6')
     libc.prctl(PR_SET_PDEATHSIG, sig)
 
-def run_qemu(s1, s2, app_path, libraries=[], seed=DEFAULT_SEED, debug=False, trace_syscalls=False):
+def run_qemu(s1, s2, app_path, libraries=[], phrase=DEFAULT_MNEMONIC, seed="", debug=False, trace_syscalls=False):
     args = [ 'qemu-arm-static' ]
     if debug:
         args += [ '-g', '1234', '-singlestep' ]
@@ -50,7 +50,11 @@ def run_qemu(s1, s2, app_path, libraries=[], seed=DEFAULT_SEED, debug=False, tra
     # replace stdin with the socket
     os.dup2(s1.fileno(), sys.stdin.fileno())
 
-    seed = mnemonic.Mnemonic.to_seed(seed)
+    if seed == "":
+        seed = mnemonic.Mnemonic.to_seed(phrase)
+    else:
+        seed = bytes.fromhex(seed)
+    print(seed.hex())
     os.environ['SPECULOS_SEED'] = binascii.hexlify(seed).decode('ascii')
 
     #print('[*] seproxyhal: executing qemu', file=sys.stderr)
@@ -68,7 +72,8 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--headless', action='store_true', help="Don't display the GUI")
     parser.add_argument('-x', '--text', action='store_true', help="Text UI (implies --headless)")
     parser.add_argument('-o', '--ontop', action='store_true', help='The window stays on top of all other windows')
-    parser.add_argument('-s', '--seed', action='store_true', default=DEFAULT_SEED, help='Seed')
+    parser.add_argument('-p', '--phrase', default=DEFAULT_MNEMONIC, help='BIP39 Mnemonic')
+    parser.add_argument('-s', '--seed', default="", help='Hex seed')
     parser.add_argument('-t', '--trace', action='store_true', help='Trace syscalls')
     args = parser.parse_args()
 
@@ -78,7 +83,7 @@ if __name__ == '__main__':
 
     s1, s2 = socket.socketpair()
 
-    run_qemu(s1, s2, getattr(args, 'app.elf'), args.library, args.seed, args.debug, args.trace)
+    run_qemu(s1, s2, getattr(args, 'app.elf'), args.library, args.phrase, args.seed, args.debug, args.trace)
     s1.close()
 
     apdu = apdu_server.ApduServer()

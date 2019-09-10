@@ -158,6 +158,16 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
            uint8_t *,            out,
            unsigned int,         out_len);
 
+  SYSCALL8(cx_aes_iv, "(%p, 0x%x, %p, %u, %p, %u, %p, %u)",
+           const cx_aes_key_t *, key,
+           int,                  mode,
+           const uint8_t *,      iv,
+           unsigned int,         iv_len,
+           const uint8_t *,      in,
+           unsigned int,         len,
+           uint8_t *,            out,
+           unsigned int,         out_len);
+
   SYSCALL3(cx_aes_init_key, "(%p, %u, %p)",
            const uint8_t *, raw_key,
            unsigned int,    key_len,
@@ -212,6 +222,12 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
            const uint8_t *,         raw_key,
            unsigned int,            key_len,
            cx_ecfp_private_key_t *, key);
+
+  SYSCALL4(cx_ecfp_init_public_key, "(0x%x, %p, %u, %p)",
+           cx_curve_t,              curve,
+           const uint8_t *,         raw_key,
+           unsigned int,            key_len,
+           cx_ecfp_public_key_t *,  key);
 
   SYSCALL6(cx_hash, "(%p, 0x%x, %p, %u, %p, %u)",
            cx_hash_t *,     hash,
@@ -368,6 +384,12 @@ int emulate(unsigned long syscall, unsigned long *parameters, unsigned long *ret
            try_context_t *, context);
 
   SYSCALL0(reset);
+
+  SYSCALL1(os_endorsement_get_code_hash, "(%p)", uint8_t *, buffer);
+
+  SYSCALL2(os_endorsement_get_public_key_certificate, "(%d, %p)",
+    unsigned char, index,
+    unsigned char *, buffer);
 
   default:
     errx(1, "failed to emulate syscall 0x%08lx", syscall);

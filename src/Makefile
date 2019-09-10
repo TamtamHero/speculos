@@ -1,7 +1,7 @@
 AR := arm-linux-gnueabihf-ar
 CC := arm-linux-gnueabihf-gcc
-CFLAGS := -I../sdk -I../openssl/include -mthumb -W -Wall -fPIC -DOS_LITTLE_ENDIAN -DNATIVE_64BITS
-LDFLAGS := -static -L../openssl -lssl -lcrypto -ldl
+CFLAGS := -I../sdk -I../openssl/include -I../secp256k1/include -mthumb -W -Wall -fPIC -DOS_LITTLE_ENDIAN -DNATIVE_64BITS -g
+LDFLAGS := -static -L../openssl -lssl -lcrypto -ldl -L../secp256k1/.libs -lsecp256k1 -g
 
 OBJS = \
 	cx_aes.o \

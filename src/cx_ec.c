@@ -4,7 +4,10 @@
 #include <openssl/bn.h>
 #include <openssl/ec.h>
 #include <openssl/objects.h>
+#include <openssl/err.h>
+#include <secp256k1.h>
 
+#include "cx.h"
 #include "cx_ec.h"
 #include "cx_hash.h"
 #include "exception.h"
@@ -467,10 +470,40 @@ int cx_ecfp_encode_sig_der(unsigned char* sig, unsigned int sig_len,
   return 2+sig[1];
 }
 
-int sys_cx_ecdsa_sign(const cx_ecfp_private_key_t *key, int UNUSED(mode), cx_md_t UNUSED(hashID), const uint8_t *hash, unsigned int hash_len, uint8_t *sig, unsigned int sig_len, unsigned int *UNUSED(info))
+
+static int _nonce_function_rng(unsigned char *nonce32, const unsigned char* UNUSED(msg32), const unsigned char* UNUSED(key32), const unsigned char* UNUSED(algo16), void* UNUSED(data), unsigned int UNUSED(counter)) {
+   sys_cx_rng(nonce32, 32);
+   return 1;
+}
+const secp256k1_nonce_function secp256k1_nonce_function_rng = _nonce_function_rng;
+
+
+// Only CX_LAST mode is supported, with or without rfc6979
+int sys_cx_ecdsa_sign(const cx_ecfp_private_key_t *key, int mode, cx_md_t UNUSED(hashID), const uint8_t *hash, unsigned int UNUSED(hash_len), uint8_t *sig, unsigned int sig_len, unsigned int *UNUSED(info))
 {
+  secp256k1_ecdsa_signature raw_sig;
+  secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+
+  switch (mode)
+  {
+  case CX_RND_RFC6979 | CX_LAST:
+    secp256k1_ecdsa_sign(ctx, &raw_sig, hash, key->d, secp256k1_nonce_function_rfc6979, NULL);
+    break;
+  
+  default:
+    secp256k1_ecdsa_sign(ctx, &raw_sig, hash, key->d, secp256k1_nonce_function_rng, NULL);
+    break;
+  }
+
+  size_t sigLen = (size_t)sig_len;
+  secp256k1_ecdsa_signature_serialize_der(ctx, sig, &sigLen, &raw_sig);
+
+  return (int)sigLen;
+
+/* Previous OpenSSL implementation, doesn't support rfc6979
   int nid = 0;
   uint8_t *buf_r, *buf_s;
+
 
   const cx_curve_domain_t *domain = cx_ecfp_get_domain(key->curve);
   nid = nid_from_curve(key->curve);
@@ -500,7 +533,7 @@ int sys_cx_ecdsa_sign(const cx_ecfp_private_key_t *key, int UNUSED(mode), cx_md_
   ECDSA_SIG_free(ecdsa_sig);
   EC_KEY_free(ec_key);
   BN_free(x);
-  return ret;
+  return ret;*/
 }
 
 unsigned long sys_cx_ecfp_init_public_key(cx_curve_t curve,
@@ -526,14 +559,12 @@ unsigned long sys_cx_ecfp_init_public_key(cx_curve_t curve,
         expected_key_len = 1 + size * 2;
       }
     }
-
     if (expected_key_len == 0 || key_len != expected_key_len) {
       THROW(INVALID_PARAMETER);
     }
   } else {
     key_len = 0;
   }
-
   // init key
   key->curve = curve;
   key->W_len = key_len;
@@ -542,7 +573,95 @@ unsigned long sys_cx_ecfp_init_public_key(cx_curve_t curve,
   return key_len;
 }
 
-int sys_cx_ecdh(const cx_ecfp_private_key_t *key, int UNUSED(mode), const uint8_t *public_point, size_t UNUSED(P_len), uint8_t *secret, size_t secret_len)
+static int ecdh_simple_compute_key_hack(unsigned char *pout, size_t* poutlen,
+                            const EC_POINT *pub_key, const EC_KEY *ecdh)
+{
+    BN_CTX *ctx;
+    EC_POINT *tmp = NULL;
+    BIGNUM *x = NULL, *y = NULL;
+    size_t xLen, yLen;
+    const BIGNUM *priv_key;
+    const EC_GROUP *group;
+    int ret = 0;
+    unsigned char *buf = NULL;
+
+    if ((ctx = BN_CTX_new()) == NULL)
+        goto err;
+    BN_CTX_start(ctx);
+    x = BN_CTX_get(ctx);
+    if (x == NULL) {
+        ECerr(EC_F_ECDH_SIMPLE_COMPUTE_KEY, ERR_R_MALLOC_FAILURE);
+        goto err;
+    }
+
+    y = BN_CTX_get(ctx);
+    if (y == NULL) {
+        ECerr(EC_F_ECDH_SIMPLE_COMPUTE_KEY, ERR_R_MALLOC_FAILURE);
+        goto err;
+    }
+
+    priv_key = EC_KEY_get0_private_key(ecdh);
+    if (priv_key == NULL) {
+        ECerr(EC_F_ECDH_SIMPLE_COMPUTE_KEY, EC_R_NO_PRIVATE_VALUE);
+        goto err;
+    }
+
+    group = EC_KEY_get0_group(ecdh);
+
+    if (EC_KEY_get_flags(ecdh) & EC_FLAG_COFACTOR_ECDH) {
+        if (!EC_GROUP_get_cofactor(group, x, NULL) ||
+            !BN_mul(x, x, priv_key, ctx)) {
+            ECerr(EC_F_ECDH_SIMPLE_COMPUTE_KEY, ERR_R_MALLOC_FAILURE);
+            goto err;
+        }
+        priv_key = x;
+    }
+
+    if ((tmp = EC_POINT_new(group)) == NULL) {
+        ECerr(EC_F_ECDH_SIMPLE_COMPUTE_KEY, ERR_R_MALLOC_FAILURE);
+        goto err;
+    }
+
+    if (!EC_POINT_mul(group, tmp, NULL, pub_key, priv_key, ctx)) {
+        ECerr(EC_F_ECDH_SIMPLE_COMPUTE_KEY, EC_R_POINT_ARITHMETIC_FAILURE);
+        goto err;
+    }
+
+    if (!EC_POINT_get_affine_coordinates(group, tmp, x, y, ctx)) {
+        ECerr(EC_F_ECDH_SIMPLE_COMPUTE_KEY, EC_R_POINT_ARITHMETIC_FAILURE);
+        goto err;
+    }
+
+    xLen = BN_num_bytes(x);
+    yLen = BN_num_bytes(y);
+    if(*poutlen < (1 + xLen + yLen)){
+      ECerr(EC_F_ECDH_SIMPLE_COMPUTE_KEY, EC_R_INVALID_ARGUMENT);
+      goto err;
+    }
+
+    pout[0] = 0x04;
+    if (xLen != (size_t)BN_bn2bin(x, pout + 1)) {
+        ECerr(EC_F_ECDH_SIMPLE_COMPUTE_KEY, ERR_R_BN_LIB);
+        goto err;
+    }
+    if (yLen != (size_t)BN_bn2bin(y, pout + 1 + xLen)) {
+        ECerr(EC_F_ECDH_SIMPLE_COMPUTE_KEY, ERR_R_BN_LIB);
+        goto err;
+    }
+    *poutlen = 1 + xLen + yLen;
+    buf = NULL;
+
+    ret = 1;
+
+ err:
+    EC_POINT_clear_free(tmp);
+    BN_CTX_end(ctx);
+    BN_CTX_free(ctx);
+    OPENSSL_free(buf);
+    return ret;
+}
+
+int sys_cx_ecdh(const cx_ecfp_private_key_t *key, int mode, const uint8_t *public_point, size_t UNUSED(P_len), uint8_t *secret, size_t secret_len)
 {
   const cx_curve_domain_t *domain;
   EC_KEY *privkey, *peerkey;
@@ -571,7 +690,16 @@ int sys_cx_ecdh(const cx_ecfp_private_key_t *key, int UNUSED(mode), const uint8_
   BN_free(y);
   BN_free(x);
 
+  switch (mode & CX_MASK_EC) {
+    case CX_ECDH_POINT:
+      if(!ecdh_simple_compute_key_hack(secret, &secret_len, EC_KEY_get0_public_key(peerkey), privkey)){
+        THROW(INVALID_PARAMETER);
+      }
+      break;
+    case CX_ECDH_X:
   secret_len = ECDH_compute_key(secret, secret_len, EC_KEY_get0_public_key(peerkey), privkey, NULL);
+      break;
+  }
 
   EC_KEY_free(privkey);
   EC_KEY_free(peerkey);
@@ -594,6 +722,5 @@ int sys_cx_ecdh(const cx_ecfp_private_key_t *key, int UNUSED(mode), const uint8_
     THROW(INVALID_PARAMETER);
     break;
   }*/
-
   return secret_len;
 }
